@@ -3,4 +3,5 @@ Repository of our NeurIPS2020 Accepted paper "Forget About the LiDAR: Self-Super
 Comming soon!
 
 Paper pre-print:https://arxiv.org/abs/2008.03633
+
 Paper supplementary pre-print: https://drive.google.com/file/d/1x6MZ_v4BqrxWJoxh73KpVyUJPD4vUY2_/view?usp=sharing
