@@ -3,9 +3,9 @@ Repository of our NeurIPS2020 Accepted paper "Forget About the LiDAR: Self-Super
 Paper and supplemental materials: https://proceedings.neurips.cc/paper/2020/hash/951124d4a093eeae83d9726a20295498-Abstract.html
 
 Cite our paper:
-'''
+```
 @inproceedings{NEURIPS2020_951124d4,
- author = {GonzalezBello, Juan Luis and Kim, Munchurl},
+ author = {Gonzalez Bello, Juan Luis and Kim, Munchurl},
  booktitle = {Advances in Neural Information Processing Systems},
  editor = {H. Larochelle and M. Ranzato and R. Hadsell and M. F. Balcan and H. Lin},
  pages = {12626--12637},
@@ -15,7 +15,7 @@ Cite our paper:
  volume = {33},
  year = {2020}
 }
-'''
+```
 
 New: Added files to train our FAL-net on KITTI
 Coming soon: Files to train our FAL-net on KITTI + CityScapes
