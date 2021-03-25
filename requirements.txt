@@ -1,0 +1,6 @@
+scipy
+torchvision
+torch
+numpy
+tensorboardX
+imageio
