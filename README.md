@@ -3,9 +3,12 @@ Repository of our NeurIPS2020 Accepted paper "Forget About the LiDAR: Self-Super
 Paper and supplemental materials: https://proceedings.neurips.cc/paper/2020/hash/951124d4a093eeae83d9726a20295498-Abstract.html
 
 ## Pre-trained models
-Pre-trained model (KITTI only, [1st stage](https://drive.google.com/drive/folders/1oQwfzEHz6MwDXqkc6riROYEOynyaEE-A?usp=sharing))
+Pre-trained model (KITTI-only, [1st stage](https://drive.google.com/drive/folders/1oQwfzEHz6MwDXqkc6riROYEOynyaEE-A?usp=sharing))
 
-Pre-trained model (KITTI only, [2nd stage](https://drive.google.com/drive/folders/1OakYov5-TQ3koiHV-i4xvuy0f8WIaOoM?usp=sharing))
+Pre-trained model (KITTI-only, [2nd stage](https://drive.google.com/drive/folders/1OakYov5-TQ3koiHV-i4xvuy0f8WIaOoM?usp=sharing))
+
+## Computed inverse depth maps
+Improved Eigen test split [Trained on KITTI-only, 2nd_stage, and post-processing](https://drive.google.com/drive/folders/1eOoTqefLh7tc6YiK1Kb8fjc9Ezxgte_J?usp=sharing)
 
 ## Cite our paper:
 ```
