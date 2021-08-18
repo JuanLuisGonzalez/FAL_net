@@ -352,7 +352,7 @@ def get_point_cloud(img, disp):
     i_tetha = torch.zeros(b, 2, 3).cuda()
     i_tetha[:, 0, 0] = 1
     i_tetha[:, 1, 1] = 1
-    grid = F.affine_grid(i_tetha, [b, c, h, w])
+    grid = F.affine_grid(i_tetha, [b, c, h, w], align_corners=False)
     grid = (grid + 1) / 2
 
     # Get horizontal and vertical pixel coordinates

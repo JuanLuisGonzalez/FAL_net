@@ -25,8 +25,8 @@ __all__ = [
 ]
 
 
-def FAL_netB(data=None, no_levels=49):
-    model = FAL_net(batchNorm=False, no_levels=no_levels)
+def FAL_netB(data=None, no_levels=49, device="cpu"):
+    model = FAL_net(batchNorm=False, no_levels=no_levels, device=device)
     if data is not None:
         model.load_state_dict(data['state_dict'])
     return model
@@ -177,7 +177,7 @@ class BackBone(nn.Module):
 
 
 class FAL_net(nn.Module):
-    def __init__(self, batchNorm, no_levels):
+    def __init__(self, batchNorm, no_levels, device):
         super(FAL_net, self).__init__()
         self.no_levels = no_levels
         self.no_fac = 1
@@ -185,6 +185,7 @@ class FAL_net(nn.Module):
         self.softmax = nn.Softmax(dim=1)
         self.elu = nn.ELU(inplace=True)
         self.sigmoid = nn.Sigmoid()
+        self.device = device
 
         # An additional 1x1 conv layer on the logits (not shown in paper). Its contribution should not be much.
         self.conv0 = nn.Conv2d(self.no_levels, self.no_fac * self.no_levels, kernel_size=1, stride=1, padding=0, bias=True)
@@ -228,7 +229,7 @@ class FAL_net(nn.Module):
         if ret_disp and not ret_subocc and not ret_pan:
             return disp
 
-        i_tetha = torch.zeros(B, 2, 3).cuda()
+        i_tetha = torch.zeros(B, 2, 3).to(self.device)
         i_tetha[:, 0, 0] = 1
         i_tetha[:, 1, 1] = 1
         i_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=True)

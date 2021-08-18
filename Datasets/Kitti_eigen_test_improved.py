@@ -18,41 +18,45 @@
 
 
 import os.path
-from .util import split2list
 from .listdataset_test import ListDataset
 from random import shuffle
+import csv
 
 
 def Kitti_eigen_test_improved(split, **kwargs):
     input_root = kwargs.pop('root')
+    print("input_root", input_root)
     transform = kwargs.pop('transform', None)
     target_transform = kwargs.pop('target_transform', None)
-    co_transform = kwargs.pop('co_transform', None)
-    shuffle_test = kwargs.pop('shuffle_test', False)
+    shuffle_test = kwargs.pop('shuffle_test', False)    
 
-    with open("Datasets/kitti_eigen_test_improved.txt", 'r') as f:
-        train_list = list(f.read().splitlines())
-        train_list = [[line.split(" "),
-                       [os.path.join(line.split(" ")[0][0:-29], 'proj_depth', 'groundtruth', 'image_02',
-                                     line.split(" ")[0][-14:]),
-                        os.path.join(line.split(" ")[0][0:-29], 'proj_depth', 'velodyne_raw', 'image_02',
-                                     line.split(" ")[0][-14:])]]
-                      for line in train_list if (os.path.isfile(os.path.join(input_root,
-                                                                             line.split(" ")[0][0:-29],
-                                                                             'proj_depth', 'groundtruth', 'image_02',
-                                                                             line.split(" ")[0][-14:]))
-                                                 and os.path.isfile(os.path.join(input_root, line.split(" ")[0])))]
+    with open('./Datasets/split/eigen_test_improved.txt') as eigen_test_improved_file:
+        eigen_test_improved_reader = csv.reader(eigen_test_improved_file, delimiter=' ')
+        eigen_test_improved_list = []
+        for row in eigen_test_improved_reader:
+            inputleft = input_root + "/raw/" + row[0].split("/")[1] +'/image_02/data/'+ row[1].zfill(10)+'.png'
+            inputright = input_root + "/raw/" + row[0].split("/")[1] +'/image_03/data/'+ row[1].zfill(10)+'.png'
+            groundtruthleft = input_root + "/raw/" + row[0].split("/")[1] +'/proj_depth/groundtruth/image_02/'+ row[1].zfill(10)+'.png'
+            velodyneleft = input_root + "/raw/" + row[0].split("/")[1] +'/proj_depth/velodyne_raw/image_02/'+ row[1].zfill(10)+'.png'
+            
+            if os.path.isfile(inputleft) and os.path.isfile(inputright) and os.path.isfile(groundtruthleft) and os.path.isfile(velodyneleft):
+                eigen_test_improved_list.append([[inputleft, inputright],[groundtruthleft, velodyneleft]])
+        
+        test_list = eigen_test_improved_list
+        if len(test_list) != 652: 
+            raise Exception(f"Could only load {len(test_list)} images from \"KITTI eigen test improved split\" of size 652.") 
 
-    train_list, test_list = split2list(train_list, split)
+        # todo
+        test_list = test_list[:2]
 
-    train_dataset = ListDataset(input_root, input_root, train_list, data_name='Kitti_eigen_test_improved',
-                                disp=True, of=False,
-                                transform=transform, target_transform=target_transform, co_transform=co_transform)
+    
+    print("len(test_list)", len(test_list))
+    
     if shuffle_test:
         shuffle(test_list)
-
+    
     test_dataset = ListDataset(input_root, input_root, test_list, data_name='Kitti_eigen_test_improved',
                                disp=True, of=False,
                                transform=transform, target_transform=target_transform)
 
-    return train_dataset, test_dataset
+    return test_dataset, None
