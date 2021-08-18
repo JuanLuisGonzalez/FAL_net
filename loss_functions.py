@@ -52,7 +52,9 @@ vgg = Vgg19_pc()
 def rec_loss_fnc(mask, synth, label, vgg_label, a_p):
     loss = torch.mean(mask * torch.abs(synth - label))
     if a_p > 0 and vgg_label is not None:
-        loss = loss + a_p * perceptual_loss(vgg(mask * synth + (1 - mask) * label), vgg_label)
+        loss = loss + a_p * perceptual_loss(
+            vgg(mask * synth + (1 - mask) * label), vgg_label
+        )
     return loss
 
 
@@ -70,25 +72,43 @@ def perceptual_loss(out_vgg, label_vgg, layer=None):
 def smoothness(img, disp, gamma=1):
     B, C, H, W = img.shape
 
-    m_rgb = torch.ones((B, C, 1, 1))#.cuda()
+    m_rgb = torch.ones((B, C, 1, 1))  # .cuda()
     m_rgb[:, 0, :, :] = 0.411 * m_rgb[:, 0, :, :]
     m_rgb[:, 1, :, :] = 0.432 * m_rgb[:, 1, :, :]
     m_rgb[:, 2, :, :] = 0.45 * m_rgb[:, 2, :, :]
     gray_img = getGrayscale(img + m_rgb)
 
     # Disparity smoothness
-    sx_filter = torch.autograd.Variable(torch.Tensor([[0, 0, 0], [-1, 2, -1], [0, 0, 0]])).unsqueeze(
-        0).unsqueeze(0)#.cuda()
-    sy_filter = torch.autograd.Variable(torch.Tensor([[0, -1, 0], [0, 2, 0], [0, -1, 0]])).unsqueeze(
-        0).unsqueeze(0)#.cuda()
-    dx_filter = torch.autograd.Variable(torch.Tensor([[0, 0, 0], [0, 1, -1], [0, 0, 0]])).unsqueeze(
-        0).unsqueeze(0)#.cuda()
-    dy_filter = torch.autograd.Variable(torch.Tensor([[0, -1, 0], [0, 1, 0], [0, 0, 0]])).unsqueeze(
-        0).unsqueeze(0)#.cuda()
-    dx1_filter = torch.autograd.Variable(torch.Tensor([[0, 0, 0], [-1, 1, 0], [0, 0, 0]])).unsqueeze(
-        0).unsqueeze(0)#.cuda()
-    dy1_filter = torch.autograd.Variable(torch.Tensor([[0, 0, 0], [0, 1, 0], [0, -1, 0]])).unsqueeze(
-        0).unsqueeze(0)#.cuda()
+    sx_filter = (
+        torch.autograd.Variable(torch.Tensor([[0, 0, 0], [-1, 2, -1], [0, 0, 0]]))
+        .unsqueeze(0)
+        .unsqueeze(0)
+    )  # .cuda()
+    sy_filter = (
+        torch.autograd.Variable(torch.Tensor([[0, -1, 0], [0, 2, 0], [0, -1, 0]]))
+        .unsqueeze(0)
+        .unsqueeze(0)
+    )  # .cuda()
+    dx_filter = (
+        torch.autograd.Variable(torch.Tensor([[0, 0, 0], [0, 1, -1], [0, 0, 0]]))
+        .unsqueeze(0)
+        .unsqueeze(0)
+    )  # .cuda()
+    dy_filter = (
+        torch.autograd.Variable(torch.Tensor([[0, -1, 0], [0, 1, 0], [0, 0, 0]]))
+        .unsqueeze(0)
+        .unsqueeze(0)
+    )  # .cuda()
+    dx1_filter = (
+        torch.autograd.Variable(torch.Tensor([[0, 0, 0], [-1, 1, 0], [0, 0, 0]]))
+        .unsqueeze(0)
+        .unsqueeze(0)
+    )  # .cuda()
+    dy1_filter = (
+        torch.autograd.Variable(torch.Tensor([[0, 0, 0], [0, 1, 0], [0, -1, 0]]))
+        .unsqueeze(0)
+        .unsqueeze(0)
+    )  # .cuda()
     dx_img = F.conv2d(gray_img, sx_filter, padding=1, stride=1)
     dy_img = F.conv2d(gray_img, sy_filter, padding=1, stride=1)
     dx_d = F.conv2d(disp, dx_filter, padding=1, stride=1)
@@ -96,8 +116,9 @@ def smoothness(img, disp, gamma=1):
     dx1_d = F.conv2d(disp, dx1_filter, padding=1, stride=1)
     dy1_d = F.conv2d(disp, dy1_filter, padding=1, stride=1)
     Cds = torch.mean(
-        (torch.abs(dx_d) + torch.abs(dx1_d)) * torch.exp(-gamma * torch.abs(dx_img)) +
-        (torch.abs(dy_d) + torch.abs(dy1_d)) * torch.exp(-gamma * torch.abs(dy_img)))
+        (torch.abs(dx_d) + torch.abs(dx1_d)) * torch.exp(-gamma * torch.abs(dx_img))
+        + (torch.abs(dy_d) + torch.abs(dy1_d)) * torch.exp(-gamma * torch.abs(dy_img))
+    )
     return Cds
 
 
@@ -105,7 +126,11 @@ def getGrayscale(input):
     # Input is mini-batch N x 3 x H x W of an RGB image (analog rgb from 0...1)
     output = torch.autograd.Variable(input.data.new(*input.size()))
     # Output is mini-batch N x 3 x H x W from y = 0 ... 1
-    output[:, 0, :, :] = 0.299 * input[:, 0, :, :] + 0.587 * input[:, 1, :, :] + 0.114 * input[:, 2, :, :]
+    output[:, 0, :, :] = (
+        0.299 * input[:, 0, :, :]
+        + 0.587 * input[:, 1, :, :]
+        + 0.114 * input[:, 2, :, :]
+    )
     return output[:, 0, :, :].unsqueeze(1)
 
 
@@ -141,8 +166,9 @@ def EPE(net_out, target, sparse=False, disp=True, mean=True):
 def sparse_max_pool(input, size):
     positive = (input > 0).float()
     negative = (input < 0).float()
-    output = nn.functional.adaptive_max_pool2d(input * positive, size) - nn.functional.adaptive_max_pool2d(
-        -input * negative, size)
+    output = nn.functional.adaptive_max_pool2d(
+        input * positive, size
+    ) - nn.functional.adaptive_max_pool2d(-input * negative, size)
     return output
 
 
@@ -156,18 +182,24 @@ def multiscaleEPE(network_output, target_flow, weights=None, sparse=False):
         return EPE(output, target_scaled, sparse, mean=False)
 
     if type(network_output) not in [tuple, list]:
-        network_output = [network_output]  # if output is not a touple, make it a touple of one element
+        network_output = [
+            network_output
+        ]  # if output is not a touple, make it a touple of one element
     if weights is None:
         weights = [0.001, 0.005, 0.01, 0.02, 0.08, 0.32]  # as in original article
-    assert (len(weights) == len(network_output))
+    assert len(weights) == len(network_output)
 
     loss = 0
     for output, weight in zip(network_output, weights):
-        loss += weight * one_scale(output, target_flow, sparse)  # linear combination of net outputs and weights
+        loss += weight * one_scale(
+            output, target_flow, sparse
+        )  # linear combination of net outputs and weights
     return loss
 
 
 def realEPE(output, target, sparse=False):
     b, _, h, w = target.size()
-    upsampled_output = nn.functional.interpolate(output, size=(h, w), mode='bilinear', align_corners=True)
+    upsampled_output = nn.functional.interpolate(
+        output, size=(h, w), mode="bilinear", align_corners=True
+    )
     return EPE(upsampled_output, target, sparse, mean=True)

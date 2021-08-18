@@ -48,8 +48,21 @@ def img_loader(input_root, path_imgs, index):
 
 
 class ListDataset(data.Dataset):
-    def __init__(self, input_root, target_root, path_list, disp=False, of=False, data_name='Monkaa', transform=None,
-                 target_transform=None, co_transform=None, max_pix=100, reference_transform=None, fix=False):
+    def __init__(
+        self,
+        input_root,
+        target_root,
+        path_list,
+        disp=False,
+        of=False,
+        data_name="Monkaa",
+        transform=None,
+        target_transform=None,
+        co_transform=None,
+        max_pix=100,
+        reference_transform=None,
+        fix=False,
+    ):
         self.input_root = input_root
         self.target_root = target_root
         self.path_list = path_list
@@ -73,12 +86,16 @@ class ListDataset(data.Dataset):
 
         if random.random() < 0.5 or self.fix_order:
             x_pix = self.max
-            inputs = [self.input_loader(self.input_root, inputs, Lt_index),
-                      self.input_loader(self.input_root, inputs, Rt_indexlr)]
+            inputs = [
+                self.input_loader(self.input_root, inputs, Lt_index),
+                self.input_loader(self.input_root, inputs, Rt_indexlr),
+            ]
         else:
             x_pix = -self.max
-            inputs = [self.input_loader(self.input_root, inputs, Rt_indexlr),
-                      self.input_loader(self.input_root, inputs, Lt_index)]
+            inputs = [
+                self.input_loader(self.input_root, inputs, Rt_indexlr),
+                self.input_loader(self.input_root, inputs, Lt_index),
+            ]
 
         # x_pix = np.random.uniform(low=0, high=self.max)
         y_pix = np.random.uniform(low=-self.max, high=self.max)

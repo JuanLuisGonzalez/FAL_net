@@ -20,31 +20,41 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = [
-    'FAL_netA'
-]
+__all__ = ["FAL_netA"]
 
 
 def FAL_netA(data=None, no_levels=33):
     model = FAL_net(batchNorm=False, no_levels=no_levels)
     if data is not None:
-        model.load_state_dict(data['state_dict'])
+        model.load_state_dict(data["state_dict"])
     return model
 
 
 def conv_elu(batchNorm, in_planes, out_planes, kernel_size=3, stride=1, pad=1):
     if batchNorm:
         return nn.Sequential(
-            nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=pad,
-                      bias=False),
+            nn.Conv2d(
+                in_planes,
+                out_planes,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=pad,
+                bias=False,
+            ),
             nn.BatchNorm2d(out_planes),
-            nn.ELU(inplace=True)
+            nn.ELU(inplace=True),
         )
     else:
         return nn.Sequential(
-            nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=pad,
-                      bias=True),
-            nn.ELU(inplace=True)
+            nn.Conv2d(
+                in_planes,
+                out_planes,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=pad,
+                bias=True,
+            ),
+            nn.ELU(inplace=True),
         )
 
 
@@ -52,10 +62,12 @@ class deconv(nn.Module):
     def __init__(self, in_planes, out_planes):
         super(deconv, self).__init__()
         self.elu = nn.ELU(inplace=True)
-        self.conv1 = nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_planes, out_planes, kernel_size=3, stride=1, padding=1, bias=False
+        )
 
     def forward(self, x, ref):
-        x = F.interpolate(x, size=(ref.size(2), ref.size(3)), mode='nearest')
+        x = F.interpolate(x, size=(ref.size(2), ref.size(3)), mode="nearest")
         x = self.elu(self.conv1(x))
         return x
 
@@ -70,10 +82,20 @@ class residual_block(nn.Module):
     def __init__(self, in_planes, kernel_size=3):
         super(residual_block, self).__init__()
         self.elu = nn.ELU(inplace=True)
-        self.conv1 = nn.Conv2d(in_planes, in_planes, kernel_size=(kernel_size, 1), padding=((kernel_size - 1) // 2, 0),
-                               bias=False)
-        self.conv2 = nn.Conv2d(in_planes, in_planes, kernel_size=(1, kernel_size), padding=(0, (kernel_size - 1) // 2),
-                               bias=False)
+        self.conv1 = nn.Conv2d(
+            in_planes,
+            in_planes,
+            kernel_size=(kernel_size, 1),
+            padding=((kernel_size - 1) // 2, 0),
+            bias=False,
+        )
+        self.conv2 = nn.Conv2d(
+            in_planes,
+            in_planes,
+            kernel_size=(1, kernel_size),
+            padding=(0, (kernel_size - 1) // 2),
+            bias=False,
+        )
 
     def forward(self, x):
         x = self.elu(self.conv2(self.elu(self.conv1(x))) + x)
@@ -82,10 +104,14 @@ class residual_block(nn.Module):
 
 def predict_amask(in_planes, out_planes):
     return nn.Sequential(
-        nn.Conv2d(in_planes, in_planes // 2, kernel_size=3, stride=1, padding=1, bias=True),
+        nn.Conv2d(
+            in_planes, in_planes // 2, kernel_size=3, stride=1, padding=1, bias=True
+        ),
         nn.ELU(inplace=True),
-        nn.Conv2d(in_planes // 2, out_planes, kernel_size=3, stride=1, padding=1, bias=False),
-        nn.Sigmoid()
+        nn.Conv2d(
+            in_planes // 2, out_planes, kernel_size=3, stride=1, padding=1, bias=False
+        ),
+        nn.Sigmoid(),
     )
 
 
@@ -124,12 +150,16 @@ class BackBone(nn.Module):
         self.deconv2 = deconv(128, 64)
         self.iconv2 = conv_elu(self.batchNorm, 64 + 64, 64)
         self.deconv1 = deconv(64, 64)
-        self.iconv1 = nn.Conv2d(32 + 64, no_out, kernel_size=3, stride=1, padding=1, bias=False)
+        self.iconv1 = nn.Conv2d(
+            32 + 64, no_out, kernel_size=3, stride=1, padding=1, bias=False
+        )
 
         # Initialize conv layers
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-                nn.init.kaiming_normal_(m.weight.data)  # initialize weigths with normal distribution
+                nn.init.kaiming_normal_(
+                    m.weight.data
+                )  # initialize weigths with normal distribution
                 if m.bias is not None:
                     m.bias.data.zero_()  # initialize bias as zero
             elif isinstance(m, nn.BatchNorm2d):
@@ -186,17 +216,34 @@ class FAL_net(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
         # convs for better kernel values and blending
-        self.conv0 = nn.Conv2d(self.no_levels, self.no_fac * self.no_levels, kernel_size=1, stride=1, padding=0, bias=True)
-        nn.init.kaiming_normal_(self.conv0.weight.data)  # initialize weigths with normal distribution
+        self.conv0 = nn.Conv2d(
+            self.no_levels,
+            self.no_fac * self.no_levels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=True,
+        )
+        nn.init.kaiming_normal_(
+            self.conv0.weight.data
+        )  # initialize weigths with normal distribution
         self.conv0.bias.data.zero_()  # initialize bias as zero
 
     def weight_parameters(self):
-        return [param for name, param in self.named_parameters() if 'weight' in name]
+        return [param for name, param in self.named_parameters() if "weight" in name]
 
     def bias_parameters(self):
-        return [param for name, param in self.named_parameters() if 'bias' in name]
+        return [param for name, param in self.named_parameters() if "bias" in name]
 
-    def forward(self, input_left, min_disp, max_disp, ret_disp=True, ret_subocc=False, ret_pan=False):
+    def forward(
+        self,
+        input_left,
+        min_disp,
+        max_disp,
+        ret_disp=True,
+        ret_subocc=False,
+        ret_pan=False,
+    ):
         B, C, H, W = input_left.shape
 
         # convert into relative value
@@ -241,10 +288,19 @@ class FAL_net(nn.Module):
                 out_grid = i_grid.clone()
                 out_grid[:, :, :, 0] = out_grid[:, :, :, 0] + x_of
             if n == 0:
-                Dprob = F.grid_sample(dlog0[:, n, :, :].unsqueeze(1), out_grid, align_corners=True)
+                Dprob = F.grid_sample(
+                    dlog0[:, n, :, :].unsqueeze(1), out_grid, align_corners=True
+                )
             else:
-                Dprob = torch.cat((Dprob,
-                                   F.grid_sample(dlog0[:, n, :, :].unsqueeze(1), out_grid, align_corners=True)), 1)
+                Dprob = torch.cat(
+                    (
+                        Dprob,
+                        F.grid_sample(
+                            dlog0[:, n, :, :].unsqueeze(1), out_grid, align_corners=True
+                        ),
+                    ),
+                    1,
+                )
         Dprob = self.softmax(Dprob)
 
         # Blend shifted features
@@ -261,17 +317,24 @@ class FAL_net(nn.Module):
 
                 if ret_subocc:
                     # Get content visible in right that is also visible in left
-                    maskR = maskR + F.grid_sample(sm_dlog0[:, n, :, :].unsqueeze(1).detach(), out_grid)
+                    maskR = maskR + F.grid_sample(
+                        sm_dlog0[:, n, :, :].unsqueeze(1).detach(), out_grid
+                    )
 
                     # Get content visible in left that is also visible in right
                     out_grid1 = i_grid.clone()
                     out_grid1[:, :, :, 0] = out_grid1[:, :, :, 0] - x_of
-                    maskL = maskL + F.grid_sample(Dprob[:, n, :, :].unsqueeze(1).detach(), out_grid1,
-                                                  align_corners=True)
+                    maskL = maskL + F.grid_sample(
+                        Dprob[:, n, :, :].unsqueeze(1).detach(),
+                        out_grid1,
+                        align_corners=True,
+                    )
 
             # Get synth right view
             if ret_pan:
-                p_im0 = p_im0 + F.grid_sample(input_left, out_grid, align_corners=True) * Dprob[:, n, :, :].unsqueeze(1)
+                p_im0 = p_im0 + F.grid_sample(
+                    input_left, out_grid, align_corners=True
+                ) * Dprob[:, n, :, :].unsqueeze(1)
 
         # Return selected outputs (according to input arguments)
         output = []

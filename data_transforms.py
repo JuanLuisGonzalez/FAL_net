@@ -37,7 +37,7 @@ class Compose(object):
 
 class ArrayToTensor(object):
     def __call__(self, array):
-        assert (isinstance(array, np.ndarray))
+        assert isinstance(array, np.ndarray)
         array = np.transpose(array, (2, 0, 1))
         tensor = torch.from_numpy(array.copy())
         return tensor.float()
@@ -60,32 +60,38 @@ class RandomResizeCrop(object):
         h, w, _ = inputs[0].shape
         th, tw = self.size
 
-        min_factor = max(max((th + 1) / h, (tw + 1) / w), self.s_factor[0])  # plus one to ensure
+        min_factor = max(
+            max((th + 1) / h, (tw + 1) / w), self.s_factor[0]
+        )  # plus one to ensure
         max_factor = self.s_factor[1]
         factor = np.random.uniform(low=min_factor, high=max_factor)
 
         for i in range(len(inputs)):
-            input = Image.fromarray(inputs[i]).resize((int(w * factor), int(h * factor)), resample=Image.BICUBIC)
+            input = Image.fromarray(inputs[i]).resize(
+                (int(w * factor), int(h * factor)), resample=Image.BICUBIC
+            )
             inputs[i] = np.array(input)
         if targets is not None:
             for i in range(len(targets)):
-                target = Image.fromarray(targets[i]).resize((int(w * factor), int(h * factor)), resample=Image.BICUBIC)
+                target = Image.fromarray(targets[i]).resize(
+                    (int(w * factor), int(h * factor)), resample=Image.BICUBIC
+                )
                 targets[i] = np.array(target)
 
         h, w, _ = inputs[0].shape
         x1 = random.randint(0, w - tw)
         y1 = random.randint(0, h - th)
         for i in range(len(inputs)):
-            inputs[i] = inputs[i][y1: y1 + th, x1: x1 + tw]
+            inputs[i] = inputs[i][y1 : y1 + th, x1 : x1 + tw]
         if targets is not None:
             for i in range(len(targets)):
-                targets[i] = targets[i][y1: y1 + th, x1: x1 + tw]
+                targets[i] = targets[i][y1 : y1 + th, x1 : x1 + tw]
         return inputs, targets
 
 
 class RandomHorizontalFlip(object):
     """Randomly horizontally flips the given PIL.Image with a probability of 0.5
-        if doing this on disparity estimation you need both disparities left and right need stereo targets
+    if doing this on disparity estimation you need both disparities left and right need stereo targets
     """
 
     def __init__(self):

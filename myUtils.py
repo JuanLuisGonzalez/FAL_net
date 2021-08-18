@@ -7,10 +7,13 @@ import shutil
 import numpy as np
 
 
-def save_checkpoint(state, is_best, save_path, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, save_path, filename="checkpoint.pth.tar"):
     torch.save(state, os.path.join(save_path, filename))
     if is_best:
-        shutil.copyfile(os.path.join(save_path, filename), os.path.join(save_path, 'model_best.pth.tar'))
+        shutil.copyfile(
+            os.path.join(save_path, filename),
+            os.path.join(save_path, "model_best.pth.tar"),
+        )
 
 
 def disp2rgb(disp_map, max_value):
@@ -30,28 +33,32 @@ def disp2rgb(disp_map, max_value):
 
 def flow2rgb(flow_map, max_value):
     _, h, w = flow_map.shape
-    flow_map[:, (flow_map[0] == 0) & (flow_map[1] == 0)] = float('nan')
+    flow_map[:, (flow_map[0] == 0) & (flow_map[1] == 0)] = float("nan")
     rgb_map = np.ones((3, h, w)).astype(np.float32)
     if max_value is not None:
         normalized_flow_map = flow_map / max_value
     else:
         normalized_flow_map = flow_map / (np.abs(flow_map).max())
     rgb_map[0, :, :] += normalized_flow_map[0, :, :]
-    rgb_map[1, :, :] -= 0.5 * (normalized_flow_map[0, :, :] + normalized_flow_map[1, :, :])
+    rgb_map[1, :, :] -= 0.5 * (
+        normalized_flow_map[0, :, :] + normalized_flow_map[1, :, :]
+    )
     rgb_map[2, :, :] += normalized_flow_map[1, :, :]
     return rgb_map.clip(0, 1)
 
 
 def grid2rgb(grid_map, max_value):
     h, w, _ = grid_map.shape
-    grid_map[(grid_map[:, :, 0] == 0) & (grid_map[:, :, 1] == 0), :] = float('nan')
+    grid_map[(grid_map[:, :, 0] == 0) & (grid_map[:, :, 1] == 0), :] = float("nan")
     rgb_map = np.ones((3, h, w)).astype(np.float32)
     if max_value is not None:
         normalized_flow_map = grid_map / max_value
     else:
         normalized_flow_map = grid_map / (np.abs(grid_map).max())
     rgb_map[0, :, :] += normalized_flow_map[:, :, 0]
-    rgb_map[1, :, :] -= 0.5 * (normalized_flow_map[:, :, 0] + normalized_flow_map[:, :, 1])
+    rgb_map[1, :, :] -= 0.5 * (
+        normalized_flow_map[:, :, 0] + normalized_flow_map[:, :, 1]
+    )
     rgb_map[2, :, :] += normalized_flow_map[:, :, 1]
     return rgb_map.clip(0, 1)
 
@@ -75,7 +82,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
     def __repr__(self):
-        return 'last:{:.3f} avg:({:.3f})'.format(self.val, self.avg)
+        return "last:{:.3f} avg:({:.3f})".format(self.val, self.avg)
 
 
 class multiAverageMeter(object):
@@ -172,7 +179,7 @@ def get_psnr(output_right, label_right, mean=(0.411, 0.432, 0.45)):
     return psnr
 
 
-kitti_error_names = ['abs_rel', 'sq_rel', 'rms', 'log_rms', 'a1', 'a2', 'a3']
+kitti_error_names = ["abs_rel", "sq_rel", "rms", "log_rms", "a1", "a2", "a3"]
 
 width_to_focal = dict()
 width_to_focal[1242] = 721.5377
@@ -180,7 +187,7 @@ width_to_focal[1241] = 718.856
 width_to_focal[1224] = 707.0493
 width_to_focal[1238] = 718.3351
 width_to_focal[1226] = 707.0912
-width_to_focal[1280] = 738.2355 # focal lenght upscaled
+width_to_focal[1280] = 738.2355  # focal lenght upscaled
 
 width_to_baseline = dict()
 width_to_baseline[1242] = 0.9982 * 0.54
@@ -192,6 +199,7 @@ width_to_baseline[1280] = 0.54
 
 sum_cnt = 0
 sum_scale = 0
+
 
 def compute_kitti_errors(gt, pred, use_median=False, min_d=1.0, max_d=80.0):
     global sum_cnt, sum_scale
@@ -262,14 +270,18 @@ def disps_to_depths_kitti(gt_disparities, pred_disparities):
         pred_disp = pred_disparities[i]
 
         height, width = gt_disp.shape
-        gt_disp = gt_disp[height - 219:height - 4, 44:1180]
-        pred_disp = pred_disp[height - 219:height - 4, 44:1180]
+        gt_disp = gt_disp[height - 219 : height - 4, 44:1180]
+        pred_disp = pred_disp[height - 219 : height - 4, 44:1180]
 
         gt_mask = gt_disp > 0
         pred_mask = pred_disp > 0
 
         gt_depth = gt_disp
-        pred_depth = width_to_focal[width] * width_to_baseline[width] / (pred_disp + (1.0 - pred_mask))
+        pred_depth = (
+            width_to_focal[width]
+            * width_to_baseline[width]
+            / (pred_disp + (1.0 - pred_mask))
+        )
 
         gt_depths.append(gt_mask * gt_depth)
         pred_depths.append(pred_depth)
@@ -356,8 +368,8 @@ def get_point_cloud(img, disp):
     grid = (grid + 1) / 2
 
     # Get horizontal and vertical pixel coordinates
-    u = grid[:,:,:,0].unsqueeze(1) * w
-    v = grid[:,:,:,1].unsqueeze(1) * h
+    u = grid[:, :, :, 0].unsqueeze(1) * w
+    v = grid[:, :, :, 1].unsqueeze(1) * h
 
     # Get X, Y world coordinates
     x = ((u - cx) / focal) * z
@@ -368,7 +380,7 @@ def get_point_cloud(img, disp):
     z[z > 200] = 200
 
     xyz_rgb = torch.cat([x, z, -y, img], 1)
-    xyz_rgb = xyz_rgb.view(b, 6, h*w)
+    xyz_rgb = xyz_rgb.view(b, 6, h * w)
 
     return xyz_rgb
 
@@ -378,18 +390,25 @@ def get_point_cloud(img, disp):
 def save_point_cloud(pc, file_name):
     _, vertex_no = pc.shape
 
-    with open(file_name, 'w+') as f:
-        f.write('ply\n')
-        f.write('format ascii 1.0\n')
-        f.write('element vertex {}\n'.format(vertex_no))
-        f.write('property float x\n')
-        f.write('property float y\n')
-        f.write('property float z\n')
-        f.write('property uchar diffuse_red\n')
-        f.write('property uchar diffuse_green\n')
-        f.write('property uchar diffuse_blue\n')
-        f.write('end_header\n')
+    with open(file_name, "w+") as f:
+        f.write("ply\n")
+        f.write("format ascii 1.0\n")
+        f.write("element vertex {}\n".format(vertex_no))
+        f.write("property float x\n")
+        f.write("property float y\n")
+        f.write("property float z\n")
+        f.write("property uchar diffuse_red\n")
+        f.write("property uchar diffuse_green\n")
+        f.write("property uchar diffuse_blue\n")
+        f.write("end_header\n")
         for i in range(vertex_no):
-            f.write('{:f} {:f} {:f} {:d} {:d} {:d}\n'.format(pc[0, i], pc[1, i], pc[2, i],
-                                                             int(pc[3, i]), int(pc[4, i]), int(pc[5, i])))
-
+            f.write(
+                "{:f} {:f} {:f} {:d} {:d} {:d}\n".format(
+                    pc[0, i],
+                    pc[1, i],
+                    pc[2, i],
+                    int(pc[3, i]),
+                    int(pc[4, i]),
+                    int(pc[5, i]),
+                )
+            )

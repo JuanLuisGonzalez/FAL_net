@@ -34,7 +34,15 @@ def depth_loader(input_root, path_depth):
 
 
 class ListDataset(data.Dataset):
-    def __init__(self, input_root, target_root, path_list, transform=None, target_transform=None, co_transform=None):
+    def __init__(
+        self,
+        input_root,
+        target_root,
+        path_list,
+        transform=None,
+        target_transform=None,
+        co_transform=None,
+    ):
         self.input_root = input_root
         self.target_root = target_root
         self.path_list = path_list
@@ -52,8 +60,10 @@ class ListDataset(data.Dataset):
         inputs, targets = self.path_list[index]
         file_name = os.path.basename(inputs[0])[:-4]
 
-        inputs = [self.input_loader(self.input_root, inputs, 0),
-                  self.input_loader(self.input_root, inputs, 1)]
+        inputs = [
+            self.input_loader(self.input_root, inputs, 0),
+            self.input_loader(self.input_root, inputs, 1),
+        ]
 
         targets = [self.target_loader(self.input_root, targets[0])]
 
