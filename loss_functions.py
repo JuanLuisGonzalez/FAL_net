@@ -5,7 +5,8 @@ from torchvision import models
 
 # Define VGG19
 class Vgg19_pc(torch.nn.Module):
-    def __init__(self, requires_grad=False, device="cpu"):
+    # todo call init with correct device (currently uncalled)
+    def __init__(self, requires_grad=False, device="cuda"):
         super(Vgg19_pc, self).__init__()
         vgg_pretrained_features = models.vgg19(pretrained=True).features
         vgg_pretrained_features = nn.DataParallel(vgg_pretrained_features.to(device))
@@ -69,10 +70,10 @@ def perceptual_loss(out_vgg, label_vgg, layer=None):
     return l_p
 
 
-def smoothness(img, disp, gamma=1):
+def smoothness(img, disp, gamma=1, device="cpu"):
     B, C, H, W = img.shape
 
-    m_rgb = torch.ones((B, C, 1, 1))  # .cuda()
+    m_rgb = torch.ones((B, C, 1, 1)).to(device)
     m_rgb[:, 0, :, :] = 0.411 * m_rgb[:, 0, :, :]
     m_rgb[:, 1, :, :] = 0.432 * m_rgb[:, 1, :, :]
     m_rgb[:, 2, :, :] = 0.45 * m_rgb[:, 2, :, :]
@@ -83,32 +84,32 @@ def smoothness(img, disp, gamma=1):
         torch.autograd.Variable(torch.Tensor([[0, 0, 0], [-1, 2, -1], [0, 0, 0]]))
         .unsqueeze(0)
         .unsqueeze(0)
-    )  # .cuda()
+    ).to(device)
     sy_filter = (
         torch.autograd.Variable(torch.Tensor([[0, -1, 0], [0, 2, 0], [0, -1, 0]]))
         .unsqueeze(0)
         .unsqueeze(0)
-    )  # .cuda()
+    ).to(device)
     dx_filter = (
         torch.autograd.Variable(torch.Tensor([[0, 0, 0], [0, 1, -1], [0, 0, 0]]))
         .unsqueeze(0)
         .unsqueeze(0)
-    )  # .cuda()
+    ).to(device)
     dy_filter = (
         torch.autograd.Variable(torch.Tensor([[0, -1, 0], [0, 1, 0], [0, 0, 0]]))
         .unsqueeze(0)
         .unsqueeze(0)
-    )  # .cuda()
+    ).to(device)
     dx1_filter = (
         torch.autograd.Variable(torch.Tensor([[0, 0, 0], [-1, 1, 0], [0, 0, 0]]))
         .unsqueeze(0)
         .unsqueeze(0)
-    )  # .cuda()
+    ).to(device)
     dy1_filter = (
         torch.autograd.Variable(torch.Tensor([[0, 0, 0], [0, 1, 0], [0, -1, 0]]))
         .unsqueeze(0)
         .unsqueeze(0)
-    )  # .cuda()
+    ).to(device)
     dx_img = F.conv2d(gray_img, sx_filter, padding=1, stride=1)
     dy_img = F.conv2d(gray_img, sy_filter, padding=1, stride=1)
     dx_d = F.conv2d(disp, dx_filter, padding=1, stride=1)

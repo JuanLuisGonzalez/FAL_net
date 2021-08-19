@@ -24,6 +24,19 @@ import numpy as np
 import Datasets
 import models
 
+import torch
+import torch.utils.data
+import torchvision.transforms as transforms
+from tensorboardX import SummaryWriter
+
+# Usefull tensorboard call
+# tensorboard --logdir=C:ProjectDir/NeurIPS2020_FAL_net/Kitti --port=6012
+
+import myUtils as utils
+import data_transforms
+from loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
+
+
 dataset_names = sorted(name for name in Datasets.__all__)
 model_names = sorted(name for name in models.__all__)
 
@@ -42,7 +55,7 @@ parser.add_argument(
     "-n0",
     "--dataName0",
     metavar="Data Set Name 0",
-    default="Kitti",
+    default="KITTI",
     choices=dataset_names,
 )
 parser.add_argument("-train_split", "--train_split", default="eigen_train_split")
@@ -50,7 +63,7 @@ parser.add_argument(
     "-vdn",
     "--vdataName",
     metavar="Val data set Name",
-    default="Kitti2015",
+    default="KITTI2015",
     choices=dataset_names,
 )
 parser.add_argument(
@@ -65,8 +78,10 @@ parser.add_argument("-mind", "--min_disp", default=2)
 parser.add_argument(
     "-gpu_no",
     "--gpu_no",
-    default="0",
-    help="Select your GPU ID, if you have multiple GPU.",
+    default=[],
+    type=int,
+    nargs="+",
+    help="Name the indices of the GPUs you want to train on. Defaults to CPU.",
 )
 parser.add_argument(
     "-mm", "--m_model", metavar="Mono Model", default="FAL_netB", choices=model_names
@@ -79,8 +94,8 @@ parser.add_argument(
     "-smooth", "--a_sm", default=0.2 * 2 / 512, help="Smoothness loss weight"
 )
 # ------------------------------------------------------------------------------
-parser.add_argument("-w", "--workers", metavar="Workers", default=4)
-parser.add_argument("-b", "--batch_size", metavar="Batch Size", default=8)
+parser.add_argument("-w", "--workers", metavar="Workers", default=4, type=int)
+parser.add_argument("-b", "--batch_size", metavar="Batch Size", default=8, type=int)
 parser.add_argument("-ch", "--crop_height", metavar="Batch crop H Size", default=192)
 parser.add_argument("-cw", "--crop_width", metavar="Batch crop W Size", default=640)
 parser.add_argument("-tbs", "--tbatch_size", metavar="Val Batch Size", default=1)
@@ -130,18 +145,20 @@ parser.add_argument(
 )
 parser.add_argument(
     "--start-epoch",
-    default=7,
+    default=0,
     type=int,
     metavar="N",
     help="manual epoch number (useful on restarts)",
 )
-# parser.add_argument('--pretrained', dest='pretrained', default=None, help='path to pre-trained model')
 parser.add_argument(
-    "--pretrained",
-    dest="pretrained",
-    default="Kitti_stage1\\10-15-10_16\\FAL_netB,e50es,b8,lr0.0001\\checkpoint.pth.tar",
-    help="directory of run",
+    "--pretrained", dest="pretrained", default=None, help="path to pre-trained model"
 )
+# parser.add_argument(
+#    "--pretrained",
+#    dest="pretrained",
+#    default="Kitti_stage1\\10-15-10_16\\FAL_netB,e50es,b8,lr0.0001\\checkpoint.pth.tar",
+#    help="directory of run",
+# )
 
 
 def display_config(save_path):
@@ -167,8 +184,8 @@ def display_config(save_path):
         f.write(settings)
 
 
-def main():
-    print("-------Training on gpu " + args.gpu_no + "-------")
+def main(device="cpu"):
+    print("-------Testing on " + str(device) + "-------")
     best_rmse = -1
 
     save_path = "{},e{}es{},b{},lr{}".format(
@@ -218,10 +235,7 @@ def main():
     )
 
     target_transform = transforms.Compose(
-        [
-            data_transforms.ArrayToTensor(),
-            transforms.Normalize(mean=[0], std=[1]),
-        ]
+        [data_transforms.ArrayToTensor(), transforms.Normalize(mean=[0], std=[1]),]
     )
 
     # Torch Data Set List
@@ -247,6 +261,7 @@ def main():
         target_transform=target_transform,
         co_transform=co_transform,
     )
+    print("len(train_dataset0)", len(train_dataset0))
 
     # Torch Data Loaders
     train_loader0 = torch.utils.data.DataLoader(
@@ -263,6 +278,8 @@ def main():
         pin_memory=False,
         shuffle=False,
     )
+    print("len(train_loader0)", len(train_loader0))
+    print("len(val_loader)", len(val_loader))
 
     # create model
     if args.pretrained:
@@ -274,7 +291,7 @@ def main():
         print("=> creating m model '{}'".format(args.m_model))
 
     m_model = models.__dict__[args.m_model](
-        network_data, no_levels=args.no_levels
+        network_data, no_levels=args.no_levels, device=device
     ).cuda()
     m_model = torch.nn.DataParallel(m_model).cuda()
     print("=> Number of parameters m-model '{}'".format(utils.get_n_params(m_model)))
@@ -301,7 +318,7 @@ def main():
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
-        train_loss = train(train_loader0, m_model, g_optimizer, epoch)
+        train_loss = train(train_loader0, m_model, g_optimizer, epoch, device)
         train_writer.add_scalar("train_loss", train_loss, epoch)
 
         # evaluate on validation set, RMSE is from stereoscopic view synthesis task
@@ -327,7 +344,7 @@ def main():
         )
 
 
-def train(train_loader, m_model, g_optimizer, epoch):
+def train(train_loader, m_model, g_optimizer, epoch, device):
     global args
     epoch_size = (
         len(train_loader)
@@ -381,6 +398,7 @@ def train(train_loader, m_model, g_optimizer, epoch):
                 left_view[:, :, :, int(0.20 * W) : :],
                 ldisp[:, :, :, int(0.20 * W) : :],
                 gamma=2,
+                device=device,
             )
 
         # compute gradient and do optimization step
@@ -513,18 +531,9 @@ if __name__ == "__main__":
     import os
 
     args = parser.parse_args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_no
 
-    import torch
-    import torch.utils.data
-    import torchvision.transforms as transforms
-    from tensorboardX import SummaryWriter
+    device = torch.device("cuda" if args.gpu_no else "cpu")
 
-    # Usefull tensorboard call
-    # tensorboard --logdir=C:ProjectDir/NeurIPS2020_FAL_net/Kitti --port=6012
+    os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([str(item) for item in args.gpu_no])
 
-    import myUtils as utils
-    import data_transforms
-    from loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
-
-    main()
+    main(device)

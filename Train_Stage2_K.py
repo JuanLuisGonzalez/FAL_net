@@ -24,6 +24,19 @@ import numpy as np
 import Datasets
 import models
 
+import torch
+import torch.utils.data
+import torchvision.transforms as transforms
+from tensorboardX import SummaryWriter
+import torch.nn.functional as F
+
+# Usefull tensorboard call
+# tensorboard --logdir=C:ProjectDir/NeurIPS2020_FAL_net/Kitti --port=6012
+
+import myUtils as utils
+import data_transforms
+from loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
+
 dataset_names = sorted(name for name in Datasets.__all__)
 model_names = sorted(name for name in models.__all__)
 
@@ -42,7 +55,7 @@ parser.add_argument(
     "-n0",
     "--dataName0",
     metavar="Data Set Name 0",
-    default="Kitti",
+    default="KITTI",
     choices=dataset_names,
 )
 parser.add_argument("-train_split", "--train_split", default="eigen_train_split")
@@ -50,7 +63,7 @@ parser.add_argument(
     "-vdn",
     "--vdataName",
     metavar="Val data set Name",
-    default="Kitti2015",
+    default="KITTI2015",
     choices=dataset_names,
 )
 parser.add_argument(
@@ -65,8 +78,10 @@ parser.add_argument("-mind", "--min_disp", default=2)
 parser.add_argument(
     "-gpu_no",
     "--gpu_no",
-    default="0",
-    help="Select your GPU ID, if you have multiple GPU.",
+    default=[],
+    type=int,
+    nargs="+",
+    help="Name the indices of the GPUs you want to train on. Defaults to CPU.",
 )
 parser.add_argument(
     "-mm", "--m_model", metavar="Mono Model", default="FAL_netB", choices=model_names
@@ -80,8 +95,8 @@ parser.add_argument(
 )
 parser.add_argument("-mirror_loss", "--a_mr", default=1, help="Mirror loss weight")
 # ------------------------------------------------------------------------------
-parser.add_argument("-w", "--workers", metavar="Workers", default=4)
-parser.add_argument("-b", "--batch_size", metavar="Batch Size", default=4)
+parser.add_argument("-w", "--workers", metavar="Workers", default=4, type=int)
+parser.add_argument("-b", "--batch_size", metavar="Batch Size", default=8, type=int)
 parser.add_argument("-ch", "--crop_height", metavar="Batch crop H Size", default=192)
 parser.add_argument("-cw", "--crop_width", metavar="Batch crop W Size", default=640)
 parser.add_argument("-tbs", "--tbatch_size", metavar="Val Batch Size", default=1)
@@ -139,12 +154,12 @@ parser.add_argument(
 parser.add_argument(
     "--fix_model",
     dest="fix_model",
-    default="Kitti_stage1\\10-15-21_11\\FAL_netB,e50es,b8,lr0.0001/checkpoint.pth.tar",
+    default="KITTI_stage1/03-25-15_29/FAL_netB,e50es,b4,lr0.0001/checkpoint.pth.tar",
 )
 parser.add_argument(
     "--pretrained",
     dest="pretrained",
-    default="Kitti_stage1\\10-15-21_11\\FAL_netB,e50es,b8,lr0.0001/checkpoint.pth.tar",
+    default="KITTI_stage1/03-25-15_29/FAL_netB,e50es,b4,lr0.0001/checkpoint.pth.tar",
     help="directory of run",
 )
 
@@ -172,8 +187,8 @@ def display_config(save_path):
         f.write(settings)
 
 
-def main():
-    print("-------Training on gpu " + args.gpu_no + "-------")
+def main(device="cpu"):
+    print("-------Testing on " + str(device) + "-------")
     best_rmse = -1
 
     save_path = "{},e{}es{},b{},lr{}".format(
@@ -223,10 +238,7 @@ def main():
     )
 
     target_transform = transforms.Compose(
-        [
-            data_transforms.ArrayToTensor(),
-            transforms.Normalize(mean=[0], std=[1]),
-        ]
+        [data_transforms.ArrayToTensor(), transforms.Normalize(mean=[0], std=[1]),]
     )
 
     # Torch Data Set List
@@ -269,6 +281,9 @@ def main():
         shuffle=False,
     )
 
+    print("len(train_loader0)", len(train_loader0))
+    print("len(val_loader)", len(val_loader))
+
     # create model
     if args.pretrained:
         network_data = torch.load(args.pretrained)
@@ -279,7 +294,7 @@ def main():
         print("=> creating m model '{}'".format(args.m_model))
 
     m_model = models.__dict__[args.m_model](
-        network_data, no_levels=args.no_levels
+        network_data, no_levels=args.no_levels, device=device
     ).cuda()
     m_model = torch.nn.DataParallel(m_model, device_ids=[0]).cuda()
     print("=> Number of parameters m-model '{}'".format(utils.get_n_params(m_model)))
@@ -462,11 +477,13 @@ def train(train_loader, m_model, fix_model, g_optimizer, epoch):
                     left_view[:, :, :, int(0.20 * W) : :],
                     ldisp[:, :, :, int(0.20 * W) : :],
                     gamma=2,
+                    device=device,
                 )
                 + smoothness(
                     right_view[:, :, :, 0 : int(0.80 * W)],
                     rdisp[:, :, :, 0 : int(0.80 * W)],
                     gamma=2,
+                    device=device,
                 )
             ) / 2
 
@@ -619,21 +636,9 @@ if __name__ == "__main__":
     import os
 
     args = parser.parse_args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_no
 
-    import torch
-    import torch.utils.data
-    import torchvision.transforms as transforms
-    from tensorboardX import SummaryWriter
-    import torch.nn.functional as F
+    device = torch.device("cuda" if args.gpu_no else "cpu")
 
-    # Usefull tensorboard call
-    # tensorboard --logdir=C:ProjectDir/NeurIPS2020_FAL_net/Kitti --port=6012
+    os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([str(item) for item in args.gpu_no])
 
-    import myUtils as utils
-    import data_transforms
-    from loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
-
-    args = parser.parse_args()
-
-    main()
+    main(device)

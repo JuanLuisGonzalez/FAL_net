@@ -21,6 +21,7 @@ import os.path
 from .util import split2list
 from .listdataset_train import ListDataset as panListDataset
 from random import shuffle
+import csv
 
 
 def Kitti(split, **kwargs):
@@ -29,31 +30,40 @@ def Kitti(split, **kwargs):
     target_transform = kwargs.pop("target_transform", None)
     reference_transform = kwargs.pop("reference_transform", None)
     co_transform = kwargs.pop("co_transform", None)
-    shuffle_test_data = kwargs.pop("shuffle_test_data", False)
     max_pix = kwargs.pop("max_pix", 100)
     fix = kwargs.pop("fix", False)
     train_split = kwargs.pop("train_split", "eigen_train_split")
 
     # From Eigen et. al (NeurIPS 2014)
     if train_split == "eigen_train_split":
-        with open("Datasets/kitti_eigen_train.txt", "r") as f:
-            train_list = list(f.read().splitlines())
-            train_list = [
-                [line.split(" "), None]
-                for line in train_list
-                if os.path.isfile(os.path.join(input_root, line.split(" ")[0]))
-            ]
-    # From Godard et. al (CVPR 2017)
-    elif train_split == "kitti_train_split":
-        with open("Datasets/kitti_train_files.txt", "r") as f:
-            train_list = list(f.read().splitlines())
-            train_list = [
-                [line.split(" "), None]
-                for line in train_list
-                if os.path.isfile(os.path.join(input_root, line.split(" ")[0]))
-            ]
+        with open("./Datasets/split/eigen_train.txt", "r") as eigen_train_file:
+            eigen_train_reader = csv.reader(eigen_train_file, delimiter=" ")
+            eigen_train_list = []
+            for row in eigen_train_reader:
+                inputleft = (
+                    input_root
+                    + "/raw/"
+                    + row[0].split("/")[1]
+                    + "/image_02/data/"
+                    + row[1].zfill(10)
+                    + ".png"
+                )
+                inputright = (
+                    input_root
+                    + "/raw/"
+                    + row[0].split("/")[1]
+                    + "/image_03/data/"
+                    + row[1].zfill(10)
+                    + ".png"
+                )
+                if os.path.isfile(inputleft) and os.path.isfile(inputright):
+                    eigen_train_list.append([[inputleft, inputright], None])
 
-    train_list, test_list = split2list(train_list, split)
+            train_list = eigen_train_list
+            if len(train_list) != 45200:
+                raise Exception(
+                    f'Could only load {len(train_list)} images from "KITTI eigen test improved split" of size 45200.'
+                )
 
     train_dataset = panListDataset(
         input_root,
@@ -69,25 +79,4 @@ def Kitti(split, **kwargs):
         reference_transform=reference_transform,
         fix=fix,
     )
-    if shuffle_test_data:
-        shuffle(test_list)
-    test_dataset = panListDataset(
-        input_root,
-        input_root,
-        test_list,
-        data_name="Kitti2015",
-        disp=False,
-        of=False,
-        transform=transform,
-        target_transform=target_transform,
-        fix=fix,
-    )
-    return train_dataset, test_dataset
-
-
-def Kitti_list(split, **kwargs):
-    input_root = kwargs.pop("root")
-    with open("kitti_train_files.txt", "r") as f:
-        train_list = list(f.read().splitlines())
-    train_list, test_list = split2list(train_list, split)
-    return train_list, test_list
+    return train_dataset, None

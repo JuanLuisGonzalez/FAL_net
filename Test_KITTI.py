@@ -171,10 +171,7 @@ def main(device="cpu"):
     )
 
     target_transform = transforms.Compose(
-        [
-            data_transforms.ArrayToTensor(),
-            transforms.Normalize(mean=[0], std=[1]),
-        ]
+        [data_transforms.ArrayToTensor(), transforms.Normalize(mean=[0], std=[1]),]
     )
 
     # Torch Data Set List
@@ -538,7 +535,5 @@ if __name__ == "__main__":
     device = torch.device("cuda" if args.gpu_no else "cpu")
 
     os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([str(item) for item in args.gpu_no])
-
-    args = parser.parse_args()
 
     main(device)

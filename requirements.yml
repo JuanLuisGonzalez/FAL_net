@@ -1,0 +1,16 @@
+name: falnet
+channels:
+  - defaults
+dependencies:
+  - pip=21.0.1
+  - python=3.8
+  - pip:
+    - --find-links https://download.pytorch.org/whl/torch_stable.html
+    - black==21.7b0
+    - imageio==2.9.0
+    - matplotlib==3.4.3
+    - numpy==1.21.2
+    - scipy==1.7.1
+    - tensorboardX==2.4
+    - torch==1.9.0+cpu
+    - torchvision==0.10.0+cpu

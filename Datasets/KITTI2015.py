@@ -82,6 +82,7 @@ def Kitti2015(split, **kwargs):
     co_transform = kwargs.pop("co_transform", None)
 
     if disp or of:
+        print("get_called")
         [train_list, test_list] = make_dataset(
             input_root, split, scene_flow=True, training=True
         )
@@ -113,19 +114,3 @@ def Kitti2015(split, **kwargs):
         target_transform=target_transform,
     )
     return train_dataset, test_dataset
-
-
-def Kitti2015_list(split, **kwargs):
-    input_root = kwargs.pop("root")
-    disp = kwargs.pop("disp", False)
-    of = kwargs.pop("of", False)
-
-    if disp or of:
-        [train_list, test_list] = make_dataset(
-            input_root, split, scene_flow=True, training=True
-        )
-    else:
-        train_list = make_dataset(input_root, split, scene_flow=False, training=True)[0]
-        test_list = make_dataset(input_root, split, scene_flow=False, training=False)[0]
-    shuffle(test_list)
-    return train_list, test_list

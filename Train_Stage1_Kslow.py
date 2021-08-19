@@ -218,10 +218,7 @@ def main():
     )
 
     target_transform = transforms.Compose(
-        [
-            data_transforms.ArrayToTensor(),
-            transforms.Normalize(mean=[0], std=[1]),
-        ]
+        [data_transforms.ArrayToTensor(), transforms.Normalize(mean=[0], std=[1]),]
     )
 
     # Torch Data Set List
@@ -411,11 +408,13 @@ def train(train_loader, m_model, g_optimizer, epoch):
                     left_view[:, :, :, int(0.20 * W) : :],
                     ldisp[:, :, :, int(0.20 * W) : :],
                     gamma=2,
+                    device=device,
                 )
                 + smoothness(
                     right_view[:, :, :, 0 : int(0.80 * W)],
                     rdisp[:, :, :, 0 : int(0.80 * W)],
                     gamma=2,
+                    device=device,
                 )
             ) / 2
 

@@ -22,8 +22,9 @@ import torch.nn.functional as F
 
 __all__ = ["FAL_netB"]
 
-
-def FAL_netB(data=None, no_levels=49, device="cpu"):
+# Todo: call falnet with device and use cpu standard
+def FAL_netB(data=None, no_levels=49, device="cuda"):
+    print("FAL_netB, device=", device)
     model = FAL_net(batchNorm=False, no_levels=no_levels, device=device)
     if data is not None:
         model.load_state_dict(data["state_dict"])
