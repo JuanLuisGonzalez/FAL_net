@@ -3,10 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 
+
 # Define VGG19
 class Vgg19_pc(torch.nn.Module):
     # todo call init with correct device (currently uncalled)
-    def __init__(self, requires_grad=False, device="cuda"):
+    def __init__(self, requires_grad=False, device="cpu"):
         super(Vgg19_pc, self).__init__()
         vgg_pretrained_features = models.vgg19(pretrained=True).features
         vgg_pretrained_features = nn.DataParallel(vgg_pretrained_features.to(device))
@@ -45,18 +46,19 @@ class Vgg19_pc(torch.nn.Module):
             return h_relu1_2, h_relu2_2, h_relu3_4
 
 
-# Get an instance of the pre-trained VGG19
-vgg = Vgg19_pc()
-
-
-# Our loss functions
-def rec_loss_fnc(mask, synth, label, vgg_label, a_p):
-    loss = torch.mean(mask * torch.abs(synth - label))
-    if a_p > 0 and vgg_label is not None:
-        loss = loss + a_p * perceptual_loss(
-            vgg(mask * synth + (1 - mask) * label), vgg_label
-        )
-    return loss
+class VGGLoss():
+    def __init__(self, device):
+        # Get an instance of the pre-trained VGG19
+        self.vgg = Vgg19_pc(device=device)
+    
+    # Our loss functions
+    def rec_loss_fnc(self, mask, synth, label, vgg_label, a_p):
+        loss = torch.mean(mask * torch.abs(synth - label))
+        if a_p > 0 and vgg_label is not None:
+            loss = loss + a_p * perceptual_loss(
+                self.vgg(mask * synth + (1 - mask) * label), vgg_label
+            )
+        return loss
 
 
 def perceptual_loss(out_vgg, label_vgg, layer=None):

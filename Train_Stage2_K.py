@@ -35,7 +35,7 @@ import torch.nn.functional as F
 
 from misc import utils
 from misc import data_transforms
-from misc.loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
+from misc.loss_functions import realEPE, smoothness, VGGLoss
 
 
 def main(args, device="cpu"):
@@ -306,10 +306,12 @@ def train(args, train_loader, model, fix_model, g_optimizer, epoch, device):
         rmask = F.grid_sample(rmask, flip_grid, align_corners=True)
         lrmask = F.grid_sample(lrmask, flip_grid, align_corners=True)
 
+        vgg_loss = VGGLoss(device=device)
+
         # Compute rec loss
         if args.a_p > 0:
-            vgg_right = vgg(right_view)
-            vgg_left = vgg(left_view)
+            vgg_right = vgg_loss.vgg(right_view)
+            vgg_left = vgg_loss.vgg(left_view)
         else:
             vgg_right = None
             vgg_left = None
@@ -323,8 +325,8 @@ def train(args, train_loader, model, fix_model, g_optimizer, epoch, device):
             O_R = 1
         # Over 2 as measured twice for left and right
         rec_loss = (
-            rec_loss_fnc(O_R, rpan, right_view, vgg_right, args.a_p)
-            + rec_loss_fnc(O_L, lpan, left_view, vgg_left, args.a_p)
+            vgg_loss.rec_loss_fnc(O_R, rpan, right_view, vgg_right, args.a_p)
+            + vgg_loss.rec_loss_fnc(O_L, lpan, left_view, vgg_left, args.a_p)
         ) / 2
         rec_losses.update(rec_loss.detach().cpu(), args.batch_size)
 
