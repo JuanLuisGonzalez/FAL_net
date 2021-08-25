@@ -7,6 +7,25 @@ import shutil
 import numpy as np
 
 
+def eta_calculator(batch_time_average, epoch_size, remaining_epochs, current_batch):
+    eta_seconds = (
+        float(batch_time_average)
+        * float(epoch_size)
+        * (float(remaining_epochs) - (float(current_batch) / float(epoch_size)))
+    )
+
+    if eta_seconds < 60:
+        return f"{eta_seconds:.2f}s"
+    elif eta_seconds > 60 and eta_seconds < 3600:
+        return f"{eta_seconds / float(60):.2f}m"
+    elif eta_seconds > 3600 and eta_seconds < 86400:
+        return f"{eta_seconds / float(60) / float(60):.2f}h"
+    elif eta_seconds > 86400:
+        return f"{eta_seconds / float(60) / float(60) / float(24):.2f}d"
+    else:
+        return "n/a"
+
+
 def flatten(the_lists):
     result = []
     for item in the_lists:
@@ -35,7 +54,7 @@ def display_config(args, save_path):
     )
     settings = settings + "-------YOUR TRAINING SETTINGS---------\n"
     for arg in vars(args):
-        settings = settings + "%15s: %s\n" % (str(arg), str(getattr(args, arg)))
+        settings = settings + "%18s: %s\n" % (str(arg), str(getattr(args, arg)))
     print(settings)
     # Save config in txt file
     with open(os.path.join(save_path, "settings.txt"), "w+") as f:
@@ -64,6 +83,33 @@ def disp2rgb(disp_map, max_value):
     rgb_map[1, :, :] = normalized_disp_map
     rgb_map[2, :, :] = normalized_disp_map
     return rgb_map.clip(0, 1)
+
+
+class RunningAverageMeter(object):
+    """Computes and stores the running average and current value"""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.vals = [0]
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val):
+        self.vals.append(val)
+        if len(self.vals) > 10:
+            self.vals = self.vals[1:]
+        self.sum = sum(self.vals)
+        self.count = len(self.vals)
+        self.avg = self.sum / self.count
+
+    def get_avg(self):
+        return self.avg
+
+    def __repr__(self):
+        return "last:{:.3f} avg:({:.3f})".format(self.vals[-1], self.avg)
 
 
 class AverageMeter(object):

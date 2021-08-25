@@ -175,9 +175,13 @@ def main(args, device="cpu"):
     for epoch in range(args.start_epoch):
         g_scheduler.step()
 
+    vgg_loss = VGGLoss(device=device)
+
     for epoch in range(args.start_epoch, args.epochs1):
         # train for one epoch
-        train_loss = train(args, train_loader0, model, g_optimizer, epoch, device)
+        train_loss = train(
+            args, train_loader0, model, g_optimizer, epoch, device, vgg_loss
+        )
         train_writer.add_scalar("train_loss", train_loss, epoch)
 
         # evaluate on validation set, RMSE is from stereoscopic view synthesis task
@@ -203,14 +207,14 @@ def main(args, device="cpu"):
         )
 
 
-def train(args, train_loader, model, g_optimizer, epoch, device):
+def train(args, train_loader, model, g_optimizer, epoch, device, vgg_loss):
     epoch_size = (
         len(train_loader)
         if args.epoch_size == 0
         else min(len(train_loader), args.epoch_size)
     )
 
-    batch_time = utils.AverageMeter()
+    batch_time = utils.RunningAverageMeter()
     data_time = utils.AverageMeter()
     rec_losses = utils.AverageMeter()
     losses = utils.AverageMeter()
@@ -243,7 +247,7 @@ def train(args, train_loader, model, g_optimizer, epoch, device):
             ret_subocc=False,
         )
         # Compute rec loss
-        vgg_loss = VGGLoss(device=device)
+
         if args.a_p > 0:
             vgg_right = vgg_loss.vgg(right_view)
         else:
@@ -276,17 +280,12 @@ def train(args, train_loader, model, g_optimizer, epoch, device):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        eta = (
-            batch_time.get_avg()
-            * float(epoch_size)
-            * (float(args.epochs1) - float(epoch) - (float(i) / float(epoch_size)))
-            / float(60)
-            / float(60)
-        )
-
         if i % args.print_freq == 0:
+            eta = utils.eta_calculator(
+                batch_time.get_avg(), epoch_size, args.epochs1 - epoch, i
+            )
             print(
-                f"Epoch: [{epoch}][{i}/{epoch_size}] ETA {eta:.2f}h Batch Time {batch_time}  Data Time {data_time}  Loss {losses} RecLoss {rec_losses}"
+                f"Epoch: [{epoch}][{i}/{epoch_size}] ETA {eta} Batch Time {batch_time}  Loss {losses} RecLoss {rec_losses}"
             )
 
         # End training epoch earlier if args.epoch_size != 0

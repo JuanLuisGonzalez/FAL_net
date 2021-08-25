@@ -8,6 +8,7 @@ from torchvision import models
 class Vgg19_pc(torch.nn.Module):
     # todo call init with correct device (currently uncalled)
     def __init__(self, requires_grad=False, device="cpu"):
+        print("device vgg19", device)
         super(Vgg19_pc, self).__init__()
         vgg_pretrained_features = models.vgg19(pretrained=True).features
         vgg_pretrained_features = nn.DataParallel(vgg_pretrained_features.to(device))
@@ -46,11 +47,11 @@ class Vgg19_pc(torch.nn.Module):
             return h_relu1_2, h_relu2_2, h_relu3_4
 
 
-class VGGLoss():
+class VGGLoss:
     def __init__(self, device):
         # Get an instance of the pre-trained VGG19
         self.vgg = Vgg19_pc(device=device)
-    
+
     # Our loss functions
     def rec_loss_fnc(self, mask, synth, label, vgg_label, a_p):
         loss = torch.mean(mask * torch.abs(synth - label))

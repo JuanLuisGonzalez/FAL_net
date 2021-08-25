@@ -189,10 +189,12 @@ def main(args, device="cpu"):
     for epoch in range(args.start_epoch):
         g_scheduler.step()
 
+    vgg_loss = VGGLoss(device=device)
+
     for epoch in range(args.start_epoch, args.epochs2):
         # train for one epoch
         train_loss = train(
-            args, train_loader0, model, fix_model, g_optimizer, epoch, device
+            args, train_loader0, model, fix_model, g_optimizer, epoch, device, vgg_loss
         )
         train_writer.add_scalar("train_loss", train_loss, epoch)
 
@@ -219,7 +221,7 @@ def main(args, device="cpu"):
         )
 
 
-def train(args, train_loader, model, fix_model, g_optimizer, epoch, device):
+def train(args, train_loader, model, fix_model, g_optimizer, epoch, device, vgg_loss):
     epoch_size = (
         len(train_loader)
         if args.epoch_size == 0
@@ -305,8 +307,6 @@ def train(args, train_loader, model, fix_model, g_optimizer, epoch, device):
         rdisp = F.grid_sample(rdisp, flip_grid, align_corners=True)
         rmask = F.grid_sample(rmask, flip_grid, align_corners=True)
         lrmask = F.grid_sample(lrmask, flip_grid, align_corners=True)
-
-        vgg_loss = VGGLoss(device=device)
 
         # Compute rec loss
         if args.a_p > 0:
