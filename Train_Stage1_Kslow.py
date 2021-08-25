@@ -245,8 +245,10 @@ def main():
         network_data = None
         print("=> creating m model '{}'".format(args.model))
 
-    model = models.__dict__[args.model](network_data, no_levels=args.no_levels).cuda()
-    model = torch.nn.DataParallel(model).cuda()
+    model = models.__dict__[args.model](network_data, no_levels=args.no_levels).to(
+        device
+    )
+    model = torch.nn.DataParallel(model).to(device)
     print("=> Number of parameters m-model '{}'".format(utils.get_n_params(model)))
 
     # Optimizer Settings
@@ -316,8 +318,8 @@ def train(train_loader, model, g_optimizer, epoch):
     end = time.time()
     for i, input_data0 in enumerate(train_loader):
         # Read training data
-        left_view = input_data0[0][0].cuda()
-        right_view = input_data0[0][1].cuda()
+        left_view = input_data0[0][0].to(device)
+        right_view = input_data0[0][1].to(device)
         max_disp = input_data0[1].unsqueeze(1).unsqueeze(1).type(left_view.type())
         B, C, H, W = left_view.shape
 
@@ -328,7 +330,7 @@ def train(train_loader, model, g_optimizer, epoch):
         g_optimizer.zero_grad()
 
         # Flip Grid (differentiable)
-        i_tetha = torch.autograd.Variable(torch.zeros(B, 2, 3)).cuda()
+        i_tetha = torch.autograd.Variable(torch.zeros(B, 2, 3)).to(device)
         i_tetha[:, 0, 0] = 1
         i_tetha[:, 1, 1] = 1
         i_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=True)
@@ -430,9 +432,9 @@ def validate(val_loader, model, epoch, output_writers):
     # Disable gradients to save memory
     with torch.no_grad():
         for i, input_data in enumerate(val_loader):
-            input_left = input_data[0][0].cuda()
-            input_right = input_data[0][1].cuda()
-            target = input_data[1][0].cuda()
+            input_left = input_data[0][0].to(device)
+            input_right = input_data[0][1].to(device)
+            target = input_data[1][0].to(device)
             max_disp = (
                 torch.Tensor([args.max_disp * args.rel_baset])
                 .unsqueeze(1)

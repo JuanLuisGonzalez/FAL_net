@@ -152,8 +152,8 @@ def main(args, device="cpu"):
 
     model = models.__dict__[args.model](
         network_data, no_levels=args.no_levels, device=device
-    ).cuda()
-    model = torch.nn.DataParallel(model, device_ids=[0]).cuda()
+    ).to(device)
+    model = torch.nn.DataParallel(model, device_ids=[0]).to(device)
     print("=> Number of parameters m-model '{}'".format(utils.get_n_params(model)))
 
     # create fix model
@@ -164,8 +164,8 @@ def main(args, device="cpu"):
     print("=> using pre-trained model '{}'".format(fix_model_name))
     fix_model = models.__dict__[fix_model_name](
         network_data, no_levels=args.no_levels
-    ).cuda()
-    fix_model = torch.nn.DataParallel(fix_model, device_ids=[0]).cuda()
+    ).to(device)
+    fix_model = torch.nn.DataParallel(fix_model, device_ids=[0]).to(device)
     print("=> Number of parameters m-model '{}'".format(utils.get_n_params(fix_model)))
     fix_model.eval()
 
@@ -237,8 +237,8 @@ def train(args, train_loader, model, fix_model, g_optimizer, epoch, device):
     end = time.time()
     for i, input_data0 in enumerate(train_loader):
         # Read training data
-        left_view = input_data0[0][0].cuda()
-        right_view = input_data0[0][1].cuda()
+        left_view = input_data0[0][0].to(device)
+        right_view = input_data0[0][1].to(device)
         max_disp = input_data0[1].unsqueeze(1).unsqueeze(1).type(left_view.type())
         min_disp = max_disp * args.min_disp / args.max_disp
         B, C, H, W = left_view.shape
@@ -250,7 +250,7 @@ def train(args, train_loader, model, fix_model, g_optimizer, epoch, device):
         g_optimizer.zero_grad()
 
         # Flip Grid (differentiable)
-        i_tetha = torch.autograd.Variable(torch.zeros(B, 2, 3)).cuda()
+        i_tetha = torch.autograd.Variable(torch.zeros(B, 2, 3)).to(device)
         i_tetha[:, 0, 0] = 1
         i_tetha[:, 1, 1] = 1
         i_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=True)
@@ -404,9 +404,9 @@ def validate(args, val_loader, model, epoch, output_writers, device):
     # Disable gradients to save memory
     with torch.no_grad():
         for i, input_data in enumerate(val_loader):
-            input_left = input_data[0][0].cuda()
-            input_right = input_data[0][1].cuda()
-            target = input_data[1][0].cuda()
+            input_left = input_data[0][0].to(device)
+            input_right = input_data[0][1].to(device)
+            target = input_data[1][0].to(device)
             max_disp = (
                 torch.Tensor([args.max_disp * args.rel_baset])
                 .unsqueeze(1)

@@ -151,8 +151,8 @@ def main(args, device="cpu"):
 
     model = models.__dict__[args.model](
         network_data, no_levels=args.no_levels, device=device
-    ).cuda()
-    model = torch.nn.DataParallel(model).cuda()
+    ).to(device)
+    model = torch.nn.DataParallel(model).to(device)
     print("=> Number of parameters model '{}'".format(utils.get_n_params(model)))
 
     # Optimizer Settings
@@ -181,7 +181,7 @@ def main(args, device="cpu"):
         train_writer.add_scalar("train_loss", train_loss, epoch)
 
         # evaluate on validation set, RMSE is from stereoscopic view synthesis task
-        rmse = validate(args, val_loader, model, epoch, output_writers)
+        rmse = validate(args, val_loader, model, epoch, output_writers, device)
         test_writer.add_scalar("mean RMSE", rmse, epoch)
 
         # Apply LR schedule (after optimizer.step() has been called for recent pyTorch versions)
@@ -221,8 +221,8 @@ def train(args, train_loader, model, g_optimizer, epoch, device):
     end = time.time()
     for i, input_data0 in enumerate(train_loader):
         # Read training data
-        left_view = input_data0[0][0].cuda()
-        right_view = input_data0[0][1].cuda()
+        left_view = input_data0[0][0].to(device)
+        right_view = input_data0[0][1].to(device)
         max_disp = input_data0[1].unsqueeze(1).unsqueeze(1).type(left_view.type())
         _, _, _, W = left_view.shape
 
@@ -289,7 +289,7 @@ def train(args, train_loader, model, g_optimizer, epoch, device):
     return losses.avg
 
 
-def validate(args, val_loader, model, epoch, output_writers):
+def validate(args, val_loader, model, epoch, output_writers, device):
 
     test_time = utils.AverageMeter()
     RMSES = utils.AverageMeter()
@@ -302,9 +302,9 @@ def validate(args, val_loader, model, epoch, output_writers):
     # Disable gradients to save memory
     with torch.no_grad():
         for i, input_data in enumerate(val_loader):
-            input_left = input_data[0][0].cuda()
-            input_right = input_data[0][1].cuda()
-            target = input_data[1][0].cuda()
+            input_left = input_data[0][0].to(device)
+            input_right = input_data[0][1].to(device)
+            target = input_data[1][0].to(device)
             max_disp = (
                 torch.Tensor([args.max_disp * args.rel_baset])
                 .unsqueeze(1)

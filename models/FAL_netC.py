@@ -276,7 +276,7 @@ class FAL_net(nn.Module):
         if ret_disp and not ret_subocc and not ret_pan:
             return disp
 
-        i_tetha = torch.zeros(B, 2, 3).cuda()
+        i_tetha = torch.zeros(B, 2, 3).to(device)
         i_tetha[:, 0, 0] = 1
         i_tetha[:, 1, 1] = 1
         i_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=True)
