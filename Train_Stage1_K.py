@@ -38,7 +38,7 @@ from misc.loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
 
 
 def main(args, device="cpu"):
-    print("-------Testing on " + str(device) + "-------")
+    print("-------Training Stage 1 on " + str(device) + "-------")
     best_rmse = -1
 
     save_path = "{},e{}es{},b{},lr{}".format(
@@ -275,11 +275,17 @@ def train(args, train_loader, model, g_optimizer, epoch, device):
         batch_time.update(time.time() - end)
         end = time.time()
 
+        eta = (
+            batch_time.get_avg()
+            * float(epoch_size)
+            * (float(args.epochs1) - float(epoch) - (float(i) / float(epoch_size)))
+            / float(60)
+            / float(60)
+        )
+
         if i % args.print_freq == 0:
             print(
-                "Epoch: [{0}][{1}/{2}] Time {3}  Data {4}  Loss {5} RecLoss {6}".format(
-                    epoch, i, epoch_size, batch_time, data_time, losses, rec_losses
-                )
+                f"Epoch: [{epoch}][{i}/{epoch_size}] ETA {eta:.2f}h Batch Time {batch_time}  Data Time {data_time}  Loss {losses} RecLoss {rec_losses}"
             )
 
         # End training epoch earlier if args.epoch_size != 0

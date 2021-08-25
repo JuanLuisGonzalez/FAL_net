@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 
 def main():
@@ -234,6 +235,8 @@ def main():
     parser.add_argument(
         "--bias-decay", default=0.0, type=float, metavar="B", help="bias decay"
     )
+
+    print(" ".join(sys.argv[:]))
 
     import os
 

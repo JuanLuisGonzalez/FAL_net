@@ -84,6 +84,9 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
+    def get_avg(self):
+        return self.avg
+
     def __repr__(self):
         return "last:{:.3f} avg:({:.3f})".format(self.val, self.avg)
 

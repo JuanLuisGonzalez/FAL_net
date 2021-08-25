@@ -39,7 +39,7 @@ from misc.loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
 
 
 def main(args, device="cpu"):
-    print("-------Testing on " + str(device) + "-------")
+    print("-------Training Stage 2 on " + str(device) + "-------")
     best_rmse = -1
 
     save_path = "{},e{}es{},b{},lr{}".format(
