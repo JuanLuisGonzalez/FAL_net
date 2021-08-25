@@ -16,12 +16,12 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import argparse
+import os
 import datetime
 import time
 import numpy as np
 
-import Datasets
+from misc.dataloader import load_data
 import models
 
 import torch
@@ -33,178 +33,29 @@ import torch.nn.functional as F
 # Usefull tensorboard call
 # tensorboard --logdir=C:ProjectDir/NeurIPS2020_FAL_net/Kitti --port=6012
 
-import myUtils as utils
-import data_transforms
-from loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
-
-dataset_names = sorted(name for name in Datasets.__all__)
-model_names = sorted(name for name in models.__all__)
-
-parser = argparse.ArgumentParser(
-    description="FAL_net in pytorch",
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-)
-parser.add_argument(
-    "-d",
-    "--data",
-    metavar="DIR",
-    default="C:\\Users\\Kaist\\Desktop",
-    help="path to dataset",
-)
-parser.add_argument(
-    "-n0",
-    "--dataName0",
-    metavar="Data Set Name 0",
-    default="KITTI",
-    choices=dataset_names,
-)
-parser.add_argument("-train_split", "--train_split", default="eigen_train_split")
-parser.add_argument(
-    "-vdn",
-    "--vdataName",
-    metavar="Val data set Name",
-    default="KITTI2015",
-    choices=dataset_names,
-)
-parser.add_argument(
-    "-relbase_test",
-    "--rel_baset",
-    default=1,
-    help="Relative baseline of testing dataset",
-)
-parser.add_argument("-maxd", "--max_disp", default=300)
-parser.add_argument("-mind", "--min_disp", default=2)
-# -----------------------------------------------------------------------------
-parser.add_argument(
-    "-gpu_no",
-    "--gpu_no",
-    default=[],
-    type=int,
-    nargs="+",
-    help="Name the indices of the GPUs you want to train on. Defaults to CPU.",
-)
-parser.add_argument(
-    "-mm", "--m_model", metavar="Mono Model", default="FAL_netB", choices=model_names
-)
-parser.add_argument(
-    "-no_levels", "--no_levels", default=49, help="Number of quantization levels in MED"
-)
-parser.add_argument("-perc", "--a_p", default=0.01, help="Perceptual loss weight")
-parser.add_argument(
-    "-smooth", "--a_sm", default=0.4 * 2 / 512, help="Smoothness loss weight"
-)
-parser.add_argument("-mirror_loss", "--a_mr", default=1, help="Mirror loss weight")
-# ------------------------------------------------------------------------------
-parser.add_argument("-w", "--workers", metavar="Workers", default=4, type=int)
-parser.add_argument("-b", "--batch_size", metavar="Batch Size", default=8, type=int)
-parser.add_argument("-ch", "--crop_height", metavar="Batch crop H Size", default=192)
-parser.add_argument("-cw", "--crop_width", metavar="Batch crop W Size", default=640)
-parser.add_argument("-tbs", "--tbatch_size", metavar="Val Batch Size", default=1)
-parser.add_argument("-op", "--optimizer", metavar="Optimizer", default="adam")
-parser.add_argument("--lr", metavar="learning Rate", default=0.00005)
-parser.add_argument(
-    "--beta", metavar="BETA", type=float, help="Beta parameter for adam", default=0.999
-)
-parser.add_argument(
-    "--momentum",
-    default=0.5,
-    type=float,
-    metavar="Momentum",
-    help="Momentum for Optimizer",
-)
-parser.add_argument(
-    "--milestones",
-    default=[5, 10],
-    metavar="N",
-    nargs="*",
-    help="epochs at which learning rate is divided by 2",
-)
-parser.add_argument(
-    "--weight-decay", "--wd", default=0.0, type=float, metavar="W", help="weight decay"
-)
-parser.add_argument(
-    "--bias-decay", default=0.0, type=float, metavar="B", help="bias decay"
-)
-parser.add_argument(
-    "--epochs", default=20, type=int, metavar="N", help="number of total epochs to run"
-)
-parser.add_argument(
-    "--epoch_size",
-    default=0,
-    type=int,
-    metavar="N",
-    help="manual epoch size (will match dataset size if set to 0)",
-)
-parser.add_argument(
-    "--sparse",
-    default=True,
-    action="store_true",
-    help="Depth GT is sparse, automatically seleted when choosing a KITTIdataset",
-)
-parser.add_argument(
-    "--print-freq", "-p", default=100, type=int, metavar="N", help="print frequency"
-)
-parser.add_argument(
-    "--start-epoch",
-    default=0,
-    type=int,
-    metavar="N",
-    help="manual epoch number (useful on restarts)",
-)
-parser.add_argument(
-    "--fix_model",
-    dest="fix_model",
-    default="KITTI_stage1/03-25-15_29/FAL_netB,e50es,b4,lr0.0001/checkpoint.pth.tar",
-)
-parser.add_argument(
-    "--pretrained",
-    dest="pretrained",
-    default="KITTI_stage1/03-25-15_29/FAL_netB,e50es,b4,lr0.0001/checkpoint.pth.tar",
-    help="directory of run",
-)
+from misc import utils
+from misc import data_transforms
+from misc.loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
 
 
-def display_config(save_path):
-    settings = ""
-    settings = (
-        settings + "############################################################\n"
-    )
-    settings = (
-        settings + "# FAL_net - Pytorch implementation                         #\n"
-    )
-    settings = (
-        settings + "# by Juan Luis Gonzalez   juanluisgb@kaist.ac.kr           #\n"
-    )
-    settings = (
-        settings + "############################################################\n"
-    )
-    settings = settings + "-------YOUR TRAINING SETTINGS---------\n"
-    for arg in vars(args):
-        settings = settings + "%15s: %s\n" % (str(arg), str(getattr(args, arg)))
-    print(settings)
-    # Save config in txt file
-    with open(os.path.join(save_path, "settings.txt"), "w+") as f:
-        f.write(settings)
-
-
-def main(device="cpu"):
+def main(args, device="cpu"):
     print("-------Testing on " + str(device) + "-------")
     best_rmse = -1
 
     save_path = "{},e{}es{},b{},lr{}".format(
-        args.m_model,
-        args.epochs,
+        args.model,
+        args.epochs2,
         str(args.epoch_size) if args.epoch_size > 0 else "",
         args.batch_size,
-        args.lr,
+        args.lr2,
     )
     timestamp = datetime.datetime.now().strftime("%m-%d-%H_%M")
     save_path = os.path.join(timestamp, save_path)
-    save_path = os.path.join(args.dataName0 + "_stage2", save_path)
+    save_path = os.path.join(args.dataset + "_stage2", save_path)
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
-    display_config(save_path)
+    utils.display_config(args, save_path)
     print("=> will save everything to {}".format(save_path))
 
     # Set output writters for showing up progress on tensorboardX
@@ -238,24 +89,28 @@ def main(device="cpu"):
     )
 
     target_transform = transforms.Compose(
-        [data_transforms.ArrayToTensor(), transforms.Normalize(mean=[0], std=[1]),]
+        [
+            data_transforms.ArrayToTensor(),
+            transforms.Normalize(mean=[0], std=[1]),
+        ]
     )
 
     # Torch Data Set List
-    input_path = os.path.join(args.data, args.dataName0)
-    [train_dataset0, _] = Datasets.__dict__[args.dataName0](
-        split=1,  # all for training
+    input_path = os.path.join(args.data_directory, args.dataset)
+    train_dataset0 = load_data(
+        split=args.train_split,
+        dataset=args.dataset,
         root=input_path,
         transform=input_transform,
         target_transform=target_transform,
         co_transform=co_transform,
         max_pix=args.max_disp,
-        train_split=args.train_split,
         fix=True,
     )
-    input_path = os.path.join(args.data, args.vdataName)
-    [_, test_dataset] = Datasets.__dict__[args.vdataName](
-        split=0,  # all to be tested
+    input_path = os.path.join(args.data_directory, args.validation_dataset)
+    test_dataset = load_data(
+        split=args.validation_split,
+        dataset=args.validation_dataset,
         root=input_path,
         disp=True,
         of=False,
@@ -287,21 +142,25 @@ def main(device="cpu"):
     # create model
     if args.pretrained:
         network_data = torch.load(args.pretrained)
-        args.m_model = network_data["m_model"]
-        print("=> using pre-trained model '{}'".format(args.m_model))
+        args.model = network_data[
+            next(item for item in network_data.keys() if "model" in str(item))
+        ]
+        print("=> using pre-trained model '{}'".format(args.model))
     else:
         network_data = None
-        print("=> creating m model '{}'".format(args.m_model))
+        print("=> creating m model '{}'".format(args.model))
 
-    m_model = models.__dict__[args.m_model](
+    model = models.__dict__[args.model](
         network_data, no_levels=args.no_levels, device=device
     ).cuda()
-    m_model = torch.nn.DataParallel(m_model, device_ids=[0]).cuda()
-    print("=> Number of parameters m-model '{}'".format(utils.get_n_params(m_model)))
+    model = torch.nn.DataParallel(model, device_ids=[0]).cuda()
+    print("=> Number of parameters m-model '{}'".format(utils.get_n_params(model)))
 
     # create fix model
     network_data = torch.load(args.fix_model)
-    fix_model_name = network_data["m_model"]
+    fix_model_name = network_data[
+        next(item for item in network_data.keys() if "model" in str(item))
+    ]
     print("=> using pre-trained model '{}'".format(fix_model_name))
     fix_model = models.__dict__[fix_model_name](
         network_data, no_levels=args.no_levels
@@ -313,30 +172,32 @@ def main(device="cpu"):
     # Optimizer Settings
     print("Setting {} Optimizer".format(args.optimizer))
     param_groups = [
-        {"params": m_model.module.bias_parameters(), "weight_decay": args.bias_decay},
+        {"params": model.module.bias_parameters(), "weight_decay": args.bias_decay},
         {
-            "params": m_model.module.weight_parameters(),
+            "params": model.module.weight_parameters(),
             "weight_decay": args.weight_decay,
         },
     ]
     if args.optimizer == "adam":
         g_optimizer = torch.optim.Adam(
-            params=param_groups, lr=args.lr, betas=(args.momentum, args.beta)
+            params=param_groups, lr=args.lr2, betas=(args.momentum, args.beta)
         )
     g_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        g_optimizer, milestones=args.milestones, gamma=0.5
+        g_optimizer, milestones=args.milestones2, gamma=0.5
     )
 
     for epoch in range(args.start_epoch):
         g_scheduler.step()
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, args.epochs2):
         # train for one epoch
-        train_loss = train(train_loader0, m_model, fix_model, g_optimizer, epoch)
+        train_loss = train(
+            args, train_loader0, model, fix_model, g_optimizer, epoch, device
+        )
         train_writer.add_scalar("train_loss", train_loss, epoch)
 
         # evaluate on validation set, RMSE is from stereoscopic view synthesis task
-        rmse = validate(val_loader, m_model, epoch, output_writers)
+        rmse = validate(args, val_loader, model, epoch, output_writers, device)
         test_writer.add_scalar("mean RMSE", rmse, epoch)
 
         # Apply LR schedule (after optimizer.step() has been called for recent pyTorch versions)
@@ -349,8 +210,8 @@ def main(device="cpu"):
         utils.save_checkpoint(
             {
                 "epoch": epoch + 1,
-                "m_model": args.m_model,
-                "state_dict": m_model.module.state_dict(),
+                "model": args.model,
+                "state_dict": model.module.state_dict(),
                 "best_rmse": best_rmse,
             },
             is_best,
@@ -358,8 +219,7 @@ def main(device="cpu"):
         )
 
 
-def train(train_loader, m_model, fix_model, g_optimizer, epoch):
-    global args
+def train(args, train_loader, model, fix_model, g_optimizer, epoch, device):
     epoch_size = (
         len(train_loader)
         if args.epoch_size == 0
@@ -372,7 +232,7 @@ def train(train_loader, m_model, fix_model, g_optimizer, epoch):
     losses = utils.AverageMeter()
 
     # switch to train mode
-    m_model.train()
+    model.train()
 
     end = time.time()
     for i, input_data0 in enumerate(train_loader):
@@ -420,7 +280,7 @@ def train(train_loader, m_model, fix_model, g_optimizer, epoch):
                 mrdisp = disp[B::, :, :, :].detach()
 
         ###### LEFT disp
-        pan, disp, mask0, mask1 = m_model(
+        pan, disp, mask0, mask1 = model(
             torch.cat(
                 (left_view, F.grid_sample(right_view, flip_grid, align_corners=True)), 0
             ),
@@ -470,7 +330,7 @@ def train(train_loader, m_model, fix_model, g_optimizer, epoch):
 
         # Compute smooth loss
         sm_loss = 0
-        if args.a_sm > 0:
+        if args.smooth2 > 0:
             # Here we ignore the 20% left dis-occluded region, as there is no suppervision for it due to parralax
             sm_loss = (
                 smoothness(
@@ -507,7 +367,7 @@ def train(train_loader, m_model, fix_model, g_optimizer, epoch):
             ) / 2
 
         # compute gradient and do optimization step
-        loss = rec_loss + args.a_sm * sm_loss + args.a_mr * mirror_loss
+        loss = rec_loss + args.smooth2 * sm_loss + args.a_mr * mirror_loss
         losses.update(loss.detach().cpu(), args.batch_size)
         loss.backward()
         g_optimizer.step()
@@ -531,8 +391,7 @@ def train(train_loader, m_model, fix_model, g_optimizer, epoch):
     return losses.avg
 
 
-def validate(val_loader, m_model, epoch, output_writers):
-    global args
+def validate(args, val_loader, model, epoch, output_writers, device):
 
     test_time = utils.AverageMeter()
     RMSES = utils.AverageMeter()
@@ -540,7 +399,7 @@ def validate(val_loader, m_model, epoch, output_writers):
     kitti_erros = utils.multiAverageMeter(utils.kitti_error_names)
 
     # switch to evaluate mode
-    m_model.eval()
+    model.eval()
 
     # Disable gradients to save memory
     with torch.no_grad():
@@ -554,12 +413,11 @@ def validate(val_loader, m_model, epoch, output_writers):
                 .unsqueeze(1)
                 .type(input_left.type())
             )
-            B, _, H, W = input_left.shape
 
             # Prepare input data
             end = time.time()
             min_disp = max_disp * args.min_disp / args.max_disp
-            p_im, disp, maskL, maskRL = m_model(
+            p_im, disp, maskL, maskRL = model(
                 input_left,
                 min_disp,
                 max_disp,
@@ -630,15 +488,3 @@ def validate(val_loader, m_model, epoch, output_writers):
     print(" * EPE {:.3f}".format(EPEs.avg))
     print(kitti_erros)
     return RMSES.avg
-
-
-if __name__ == "__main__":
-    import os
-
-    args = parser.parse_args()
-
-    device = torch.device("cuda" if args.gpu_no else "cpu")
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([str(item) for item in args.gpu_no])
-
-    main(device)

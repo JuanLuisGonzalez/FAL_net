@@ -39,21 +39,7 @@ parser.add_argument(
     default="C:\\Users\\Kaist\\Desktop",
     help="path to dataset",
 )
-parser.add_argument(
-    "-n0",
-    "--dataName0",
-    metavar="Data Set Name 0",
-    default="Kitti",
-    choices=dataset_names,
-)
 parser.add_argument("-train_split", "--train_split", default="eigen_train_split")
-parser.add_argument(
-    "-vdn",
-    "--vdataName",
-    metavar="Val data set Name",
-    default="Kitti2015",
-    choices=dataset_names,
-)
 parser.add_argument(
     "-relbase_test",
     "--rel_baset",
@@ -70,15 +56,9 @@ parser.add_argument(
     help="Select your GPU ID, if you have multiple GPU.",
 )
 parser.add_argument(
-    "-mm", "--m_model", metavar="Mono Model", default="FAL_netB", choices=model_names
-)
-parser.add_argument(
     "-no_levels", "--no_levels", default=49, help="Number of quantization levels in MED"
 )
 parser.add_argument("-perc", "--a_p", default=0.01, help="Perceptual loss weight")
-parser.add_argument(
-    "-smooth", "--a_sm", default=0.2 * 2 / 512, help="Smoothness loss weight"
-)
 # ------------------------------------------------------------------------------
 parser.add_argument("-w", "--workers", metavar="Workers", default=4)
 parser.add_argument("-b", "--batch_size", metavar="Batch Size", default=4)
@@ -98,20 +78,10 @@ parser.add_argument(
     help="Momentum for Optimizer",
 )
 parser.add_argument(
-    "--milestones",
-    default=[30, 40],
-    metavar="N",
-    nargs="*",
-    help="epochs at which learning rate is divided by 2",
-)
-parser.add_argument(
     "--weight-decay", "--wd", default=0.0, type=float, metavar="W", help="weight decay"
 )
 parser.add_argument(
     "--bias-decay", default=0.0, type=float, metavar="B", help="bias decay"
-)
-parser.add_argument(
-    "--epochs", default=50, type=int, metavar="N", help="number of total epochs to run"
 )
 parser.add_argument(
     "--epoch_size",
@@ -172,15 +142,15 @@ def main():
     best_rmse = -1
 
     save_path = "{},e{}es{},b{},lr{}".format(
-        args.m_model,
-        args.epochs,
+        args.model,
+        args.epochs1,
         str(args.epoch_size) if args.epoch_size > 0 else "",
         args.batch_size,
-        args.lr,
+        args.lr1,
     )
     timestamp = datetime.datetime.now().strftime("%m-%d-%H_%M")
     save_path = os.path.join(timestamp, save_path)
-    save_path = os.path.join(args.dataName0 + "_stage1", save_path)
+    save_path = os.path.join(args.dataset + "_stage1", save_path)
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
@@ -218,12 +188,15 @@ def main():
     )
 
     target_transform = transforms.Compose(
-        [data_transforms.ArrayToTensor(), transforms.Normalize(mean=[0], std=[1]),]
+        [
+            data_transforms.ArrayToTensor(),
+            transforms.Normalize(mean=[0], std=[1]),
+        ]
     )
 
     # Torch Data Set List
-    input_path = os.path.join(args.data, args.dataName0)
-    [train_dataset0, _] = Datasets.__dict__[args.dataName0](
+    input_path = os.path.join(args.data_directory, args.dataset)
+    [train_dataset0, _] = Datasets.__dict__[args.dataset](
         split=1,  # all for training
         root=input_path,
         transform=input_transform,
@@ -233,8 +206,8 @@ def main():
         train_split=args.train_split,
         fix=True,
     )
-    input_path = os.path.join(args.data, args.vdataName)
-    [_, test_dataset] = Datasets.__dict__[args.vdataName](
+    input_path = os.path.join(args.data_directory, args.validation_dataset)
+    [_, test_dataset] = Datasets.__dict__[args.validation_dataset](
         split=0,  # all to be tested
         root=input_path,
         disp=True,
@@ -264,45 +237,45 @@ def main():
     # create model
     if args.pretrained:
         network_data = torch.load(args.pretrained)
-        args.m_model = network_data["m_model"]
-        print("=> using pre-trained model '{}'".format(args.m_model))
+        args.model = network_data[
+            next(item for item in network_data.keys() if "model" in str(item))
+        ]
+        print("=> using pre-trained model '{}'".format(args.model))
     else:
         network_data = None
-        print("=> creating m model '{}'".format(args.m_model))
+        print("=> creating m model '{}'".format(args.model))
 
-    m_model = models.__dict__[args.m_model](
-        network_data, no_levels=args.no_levels
-    ).cuda()
-    m_model = torch.nn.DataParallel(m_model).cuda()
-    print("=> Number of parameters m-model '{}'".format(utils.get_n_params(m_model)))
+    model = models.__dict__[args.model](network_data, no_levels=args.no_levels).cuda()
+    model = torch.nn.DataParallel(model).cuda()
+    print("=> Number of parameters m-model '{}'".format(utils.get_n_params(model)))
 
     # Optimizer Settings
     print("Setting {} Optimizer".format(args.optimizer))
     param_groups = [
-        {"params": m_model.module.bias_parameters(), "weight_decay": args.bias_decay},
+        {"params": model.module.bias_parameters(), "weight_decay": args.bias_decay},
         {
-            "params": m_model.module.weight_parameters(),
+            "params": model.module.weight_parameters(),
             "weight_decay": args.weight_decay,
         },
     ]
     if args.optimizer == "adam":
         g_optimizer = torch.optim.Adam(
-            params=param_groups, lr=args.lr, betas=(args.momentum, args.beta)
+            params=param_groups, lr=args.lr1, betas=(args.momentum, args.beta)
         )
     g_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        g_optimizer, milestones=args.milestones, gamma=0.5
+        g_optimizer, milestones=args.milestones1, gamma=0.5
     )
 
     for epoch in range(args.start_epoch):
         g_scheduler.step()
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, args.epochs1):
         # train for one epoch
-        train_loss = train(train_loader0, m_model, g_optimizer, epoch)
+        train_loss = train(train_loader0, model, g_optimizer, epoch)
         train_writer.add_scalar("train_loss", train_loss, epoch)
 
         # evaluate on validation set, RMSE is from stereoscopic view synthesis task
-        rmse = validate(val_loader, m_model, epoch, output_writers)
+        rmse = validate(val_loader, model, epoch, output_writers)
         test_writer.add_scalar("mean RMSE", rmse, epoch)
 
         # Apply LR schedule (after optimizer.step() has been called for recent pyTorch versions)
@@ -315,8 +288,8 @@ def main():
         utils.save_checkpoint(
             {
                 "epoch": epoch + 1,
-                "m_model": args.m_model,
-                "state_dict": m_model.module.state_dict(),
+                "model": args.model,
+                "state_dict": model.module.state_dict(),
                 "best_rmse": best_rmse,
             },
             is_best,
@@ -324,7 +297,7 @@ def main():
         )
 
 
-def train(train_loader, m_model, g_optimizer, epoch):
+def train(train_loader, model, g_optimizer, epoch):
     global args
     epoch_size = (
         len(train_loader)
@@ -338,7 +311,7 @@ def train(train_loader, m_model, g_optimizer, epoch):
     losses = utils.AverageMeter()
 
     # switch to train mode
-    m_model.train()
+    model.train()
 
     end = time.time()
     for i, input_data0 in enumerate(train_loader):
@@ -364,7 +337,7 @@ def train(train_loader, m_model, g_optimizer, epoch):
 
         ###### Get disparity and synthetic right view (right view is fed flipped)
         min_disp = max_disp * args.min_disp / args.max_disp
-        pan, disp = m_model(
+        pan, disp = model(
             torch.cat(
                 (left_view, F.grid_sample(right_view, flip_grid, align_corners=True)), 0
             ),
@@ -401,7 +374,7 @@ def train(train_loader, m_model, g_optimizer, epoch):
 
         #  Compute smooth loss
         sm_loss = 0
-        if args.a_sm > 0:
+        if args.smooth1 > 0:
             # Here we ignore the 20% left dis-occluded region, as there is no suppervision for it due to parralax
             sm_loss = (
                 smoothness(
@@ -419,7 +392,7 @@ def train(train_loader, m_model, g_optimizer, epoch):
             ) / 2
 
         # compute gradient and do optimization step
-        loss = rec_loss + args.a_sm * sm_loss
+        loss = rec_loss + args.smooth1 * sm_loss
         losses.update(loss.detach().cpu(), args.batch_size)
         loss.backward()
         g_optimizer.step()
@@ -443,7 +416,7 @@ def train(train_loader, m_model, g_optimizer, epoch):
     return losses.avg
 
 
-def validate(val_loader, m_model, epoch, output_writers):
+def validate(val_loader, model, epoch, output_writers):
     global args
 
     test_time = utils.AverageMeter()
@@ -452,7 +425,7 @@ def validate(val_loader, m_model, epoch, output_writers):
     kitti_erros = utils.multiAverageMeter(utils.kitti_error_names)
 
     # switch to evaluate mode
-    m_model.eval()
+    model.eval()
 
     # Disable gradients to save memory
     with torch.no_grad():
@@ -471,7 +444,7 @@ def validate(val_loader, m_model, epoch, output_writers):
             # Prepare input data
             end = time.time()
             min_disp = max_disp * args.min_disp / args.max_disp
-            p_im, disp, maskL, maskRL = m_model(
+            p_im, disp, maskL, maskRL = model(
                 input_left,
                 min_disp,
                 max_disp,
@@ -560,7 +533,7 @@ if __name__ == "__main__":
     # tensorboard --logdir=C:ProjectDir/NeurIPS2020_FAL_net/Kitti --port=6012
 
     import myUtils as utils
-    import data_transforms
-    from loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
+    import utils.data_transforms
+    from misc.loss_functions import rec_loss_fnc, realEPE, smoothness, vgg
 
     main()
