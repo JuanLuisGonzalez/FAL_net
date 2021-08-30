@@ -48,7 +48,7 @@ class Vgg19_pc(torch.nn.Module):
 
 
 class VGGLoss:
-    def __init__(self, device):
+    def __init__(self, device="cpu"):
         # Get an instance of the pre-trained VGG19
         self.vgg = Vgg19_pc(device=device)
 

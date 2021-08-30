@@ -97,9 +97,22 @@ def main(args, device="cpu"):
     )
 
     # create pan model
-    model_dir = os.path.join("KITTI_stage2", args.time_stamp, args.model + args.details)
-    print(model_dir)
-    pan_network_data = torch.load(model_dir, map_location=torch.device(device))
+    model_path = os.path.join(
+        args.dataset + "_stage2",
+        args.time_stamp,
+    )
+    if not os.path.exists(model_path):
+        raise Exception(
+            f"No pretrained model with timestamp {args.pretrained} was found."
+        )
+    model_path = os.path.join(
+        model_path,
+        next(d for d in (next(os.walk(model_path))[1]) if not d[0] == "."),
+        "model_best.pth.tar",
+    )
+
+    print(model_path)
+    pan_network_data = torch.load(model_path, map_location=torch.device(device))
 
     pan_model = pan_network_data[
         next(item for item in pan_network_data.keys() if "model" in str(item))

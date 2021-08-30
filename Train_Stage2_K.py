@@ -141,7 +141,28 @@ def main(args, device="cpu"):
 
     # create model
     if args.pretrained:
-        network_data = torch.load(args.pretrained)
+        if len(args.pretrained) > 11:
+            network_data = torch.load(args.pretrained)
+        else:
+            pretrained_model_path = os.path.join(
+                args.dataset + "_stage2",
+                args.pretrained,
+            )
+            if not os.path.exists(pretrained_model_path):
+                raise Exception(
+                    f"No pretrained model with timestamp {args.pretrained} was found."
+                )
+            pretrained_model_path = os.path.join(
+                pretrained_model_path,
+                next(
+                    d
+                    for d in (next(os.walk(pretrained_model_path))[1])
+                    if not d[0] == "."
+                ),
+                "checkpoint.pth.tar",
+            )
+            network_data = torch.load(pretrained_model_path)
+
         args.model = network_data[
             next(item for item in network_data.keys() if "model" in str(item))
         ]
@@ -153,11 +174,27 @@ def main(args, device="cpu"):
     model = models.__dict__[args.model](
         network_data, no_levels=args.no_levels, device=device
     ).to(device)
-    model = torch.nn.DataParallel(model, device_ids=[0]).to(device)
+    model = torch.nn.DataParallel(model).to(device)
     print("=> Number of parameters m-model '{}'".format(utils.get_n_params(model)))
 
     # create fix model
-    network_data = torch.load(args.fix_model)
+
+    if len(args.fix_model) > 11:
+        network_data = torch.load(args.fix_model)
+    else:
+        fix_model_path = os.path.join(
+            args.dataset + "_stage1",
+            args.fix_model,
+        )
+        if not os.path.exists(fix_model_path):
+            raise Exception(f"No fix model with timestamp {args.fix_model} was found.")
+        fix_model_path = os.path.join(
+            fix_model_path,
+            next(d for d in (next(os.walk(fix_model_path))[1]) if not d[0] == "."),
+            "checkpoint.pth.tar",
+        )
+        network_data = torch.load(fix_model_path)
+
     fix_model_name = network_data[
         next(item for item in network_data.keys() if "model" in str(item))
     ]
@@ -165,7 +202,7 @@ def main(args, device="cpu"):
     fix_model = models.__dict__[fix_model_name](
         network_data, no_levels=args.no_levels
     ).to(device)
-    fix_model = torch.nn.DataParallel(fix_model, device_ids=[0]).to(device)
+    fix_model = torch.nn.DataParallel(fix_model).to(device)
     print("=> Number of parameters m-model '{}'".format(utils.get_n_params(fix_model)))
     fix_model.eval()
 
@@ -228,7 +265,7 @@ def train(args, train_loader, model, fix_model, g_optimizer, epoch, device, vgg_
         else min(len(train_loader), args.epoch_size)
     )
 
-    batch_time = utils.AverageMeter()
+    batch_time = utils.RunningAverageMeter()
     data_time = utils.AverageMeter()
     rec_losses = utils.AverageMeter()
     losses = utils.AverageMeter()
@@ -380,10 +417,11 @@ def train(args, train_loader, model, fix_model, g_optimizer, epoch, device, vgg_
         end = time.time()
 
         if i % args.print_freq == 0:
+            eta = utils.eta_calculator(
+                batch_time.get_avg(), epoch_size, args.epochs2 - epoch, i
+            )
             print(
-                "Epoch: [{0}][{1}/{2}] Time {3}  Data {4}  Loss {5} RecLoss {6}".format(
-                    epoch, i, epoch_size, batch_time, data_time, losses, rec_losses
-                )
+                f"Epoch: [{epoch}][{i}/{epoch_size}] ETA {eta} Batch Time {batch_time}  Loss {losses} RecLoss {rec_losses}"
             )
 
         # End training epoch earlier if args.epoch_size != 0
@@ -420,9 +458,9 @@ def validate(args, val_loader, model, epoch, output_writers, device):
             end = time.time()
             min_disp = max_disp * args.min_disp / args.max_disp
             p_im, disp, maskL, maskRL = model(
-                input_left,
-                min_disp,
-                max_disp,
+                input_left=input_left,
+                min_disp=min_disp,
+                max_disp=max_disp,
                 ret_disp=True,
                 ret_pan=True,
                 ret_subocc=True,

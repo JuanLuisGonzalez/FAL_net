@@ -5,6 +5,9 @@ import torch.nn.parallel
 import torch.nn.functional as F
 import shutil
 import numpy as np
+import datetime
+
+a = datetime.timedelta(seconds=24)
 
 
 def eta_calculator(batch_time_average, epoch_size, remaining_epochs, current_batch):
@@ -14,16 +17,7 @@ def eta_calculator(batch_time_average, epoch_size, remaining_epochs, current_bat
         * (float(remaining_epochs) - (float(current_batch) / float(epoch_size)))
     )
 
-    if eta_seconds < 60:
-        return f"{eta_seconds:.2f}s"
-    elif eta_seconds > 60 and eta_seconds < 3600:
-        return f"{eta_seconds / float(60):.2f}m"
-    elif eta_seconds > 3600 and eta_seconds < 86400:
-        return f"{eta_seconds / float(60) / float(60):.2f}h"
-    elif eta_seconds > 86400:
-        return f"{eta_seconds / float(60) / float(60) / float(24):.2f}d"
-    else:
-        return "n/a"
+    return datetime.timedelta(seconds=round(eta_seconds))
 
 
 def flatten(the_lists):
