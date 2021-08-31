@@ -4,6 +4,10 @@ KITTI_stage1/
 Kitti_stage2/
 KITTI_stage2/
 Test_Results/
+data/*
+!data/README.md 
+
+temp/
 
 # Mac Specific
 .DS_Store

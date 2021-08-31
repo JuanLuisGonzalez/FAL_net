@@ -22,10 +22,10 @@ import datetime
 import time
 import numpy as np
 
-import Datasets
+import splits
 import models
 
-dataset_names = sorted(name for name in Datasets.__all__)
+dataset_names = sorted(name for name in splits.__all__)
 model_names = sorted(name for name in models.__all__)
 
 parser = argparse.ArgumentParser(
@@ -196,7 +196,7 @@ def main():
 
     # Torch Data Set List
     input_path = os.path.join(args.data_directory, args.dataset)
-    [train_dataset0, _] = Datasets.__dict__[args.dataset](
+    [train_dataset0, _] = splits.__dict__[args.dataset](
         split=1,  # all for training
         root=input_path,
         transform=input_transform,
@@ -207,7 +207,7 @@ def main():
         fix=True,
     )
     input_path = os.path.join(args.data_directory, args.validation_dataset)
-    [_, test_dataset] = Datasets.__dict__[args.validation_dataset](
+    [_, test_dataset] = splits.__dict__[args.validation_dataset](
         split=0,  # all to be tested
         root=input_path,
         disp=True,

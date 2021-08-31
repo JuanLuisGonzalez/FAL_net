@@ -1,5 +1,7 @@
 import argparse
 import sys
+import os
+from misc.download_KITTI import download
 
 
 def main():
@@ -12,7 +14,7 @@ def main():
         "-dd",
         "--data_directory",
         metavar="DIR",
-        default="/dataQ/arne",
+        default="./data",
         help="Directory containing the datasets",
     )
 
@@ -238,14 +240,31 @@ def main():
 
     print(" ".join(sys.argv[:]))
 
-    import os
-
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join(
         [str(item) for item in args.gpu_indices]
     )
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+    dataset_path = os.path.join(args.data_directory, args.dataset)
+    if not os.path.exists(dataset_path):
+        if args.dataset == "KITTI" or args.dataset == "KITTI2015":
+            if (
+                input(
+                    f"No data found at {dataset_path}. Would you like to download the {args.dataset} dataset? (y/n): "
+                )
+                .lower()
+                .strip()[:1]
+                == "y"
+            ):
+                if args.dataset == "KITTI":
+                    download()
+                sys.exit(1)
+
+    if not os.path.exists(dataset_path):
+        print(f"Program aborts, as no data could be found at {dataset_path}.")
+        sys.exit(1)
 
     import torch
 
@@ -261,6 +280,10 @@ def main():
         train1(args, device)
     elif args.modus_operandi == "train2":
         train2(args, device)
+    elif args.modus_operandi == "full":
+        train1(args, device)
+        train2(args, device)
+        test(args, device)
     else:
         raise Exception(f"{args.modus_operandi} is not a valid modus operandi.")
 

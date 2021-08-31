@@ -20,11 +20,11 @@ def load_data(split, **kwargs):
     disp_arg = kwargs.pop("disp", False)
 
     if split == "eigen_test_improved" and dataset == "KITTI":
-        splitfilelocation = "./datasets/KITTI/eigen_test_improved.txt"
+        splitfilelocation = "./splits/KITTI/eigen_test_improved.txt"
     elif split == "eigen_train" and dataset == "KITTI":
-        splitfilelocation = "./datasets/KITTI/eigen_train.txt"
+        splitfilelocation = "./splits/KITTI/eigen_train.txt"
     elif split == "bello_val" and dataset == "KITTI2015":
-        splitfilelocation = "./datasets/KITTI2015/bello_val.txt"
+        splitfilelocation = "./splits/KITTI2015/bello_val.txt"
 
     try:
         datasetfile = open(splitfilelocation)
