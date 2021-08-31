@@ -29,17 +29,18 @@ LR_DATASETS = ["Kitti_eigen_test_improved"]
 
 def img_loader(input_root, path_img):
     imgs = os.path.join(input_root, path_img)
-    return imread(imgs)
+    return imread(path_img)
 
 
 def kittidisp_loader(input_root, path_img):
     disp = os.path.join(input_root, path_img)
-    disp = imread(disp) / 256
+    # print("input_root", input_root, "path_img", path_img, "disp", disp)
+    disp = imread(path_img) / 256
     return disp[:, :, np.newaxis]
 
 
 def kittidepth_loader(input_root, path_depth):
-    depth = np.load(os.path.join(input_root, path_depth))
+    depth = np.load(path_depth)
     return depth[:, :, np.newaxis]
 
 
