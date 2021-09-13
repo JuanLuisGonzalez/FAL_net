@@ -20,6 +20,7 @@ def load_data(split=None, **kwargs):
     fix = kwargs.pop("fix", False)
     of_arg = kwargs.pop("of", False)
     disp_arg = kwargs.pop("disp", False)
+    create_val = kwargs.pop("create_val", False)
 
     if split == "eigen_test_improved" and dataset == "KITTI":
         splitfilelocation = "./splits/KITTI/eigen_test_improved.txt"
@@ -28,7 +29,10 @@ def load_data(split=None, **kwargs):
     elif split == "bello_val" and dataset == "KITTI2015":
         splitfilelocation = "./splits/KITTI2015/bello_val.txt"
 
-    if split is not None:
+    if dataset == "ASM_stereo_small":
+        with open(f"{input_root}/ASM_stereo_small_train", "rb") as fp:
+            datasetlist = pickle.load(fp)
+    elif split is not None:
         try:
             datasetfile = open(splitfilelocation)
         except:
@@ -70,10 +74,6 @@ def load_data(split=None, **kwargs):
                     if item != None and not os.path.isfile(item):
                         raise Exception(f"Could not load file in location {item}.")
 
-    elif split is None and dataset == "ASM_stereo_small":
-        with open(f"{input_root}/ASM_stereo_small_train", "rb") as fp:
-            datasetlist = pickle.load(fp)
-
     if shuffle_test and isinstance(datasetlist, list):
         shuffle(datasetlist)
     elif shuffle_test and isinstance(datasetlist, np.ndarray):
@@ -111,12 +111,32 @@ def load_data(split=None, **kwargs):
             target_transform=target_transform,
         )
     elif split is None and dataset == "ASM_stereo_small":
-        print(f"fdataset {dataset}")
-        dataset = RetrainListDataset(
-            datasetlist,
-            transform=transform,
-            co_transform=co_transform,
-            max_pix=max_pix,
-        )
+        if create_val:
+            np.random.default_rng().shuffle(datasetlist, axis=0)
+            val_size = int(len(datasetlist) * create_val)
+            val_list = datasetlist[:val_size]
+            datasetlist = datasetlist[val_size:]
+
+            val_set = RetrainListDataset(
+                val_list,
+                transform=transform,
+                co_transform=co_transform,
+                max_pix=max_pix,
+            )
+
+            dataset = RetrainListDataset(
+                datasetlist,
+                transform=transform,
+                co_transform=co_transform,
+                max_pix=max_pix,
+            )
+            return dataset, val_set
+        else:
+            dataset = RetrainListDataset(
+                datasetlist,
+                transform=transform,
+                co_transform=co_transform,
+                max_pix=max_pix,
+            )
 
     return dataset

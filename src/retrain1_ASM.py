@@ -63,14 +63,16 @@ def main(args, device="cpu"):
 
     # Torch Data Set List
     input_path = os.path.join(args.data_directory, args.dataset)
-    train_dataset0 = load_data(
+    train_dataset0, val_dataset0 = load_data(
         dataset=args.dataset,
         root=input_path,
         transform=input_transform,
         co_transform=co_transform,
         max_pix=args.max_disp,
+        create_val=0.1,
     )
     print("len(train_dataset0)", len(train_dataset0))
+    print("len(val_dataset0)", len(val_dataset0))
 
     # Torch Data Loaders
     train_loader0 = torch.utils.data.DataLoader(
@@ -81,6 +83,16 @@ def main(args, device="cpu"):
         shuffle=True,
     )
     print("len(train_loader0)", len(train_loader0))
+
+    # Torch Data Loaders
+    val_loader0 = torch.utils.data.DataLoader(
+        val_dataset0,
+        batch_size=args.batch_size,
+        num_workers=args.workers,
+        pin_memory=False,
+        shuffle=True,
+    )
+    print("len(val_loader0)", len(val_loader0))
 
     # create model
     model = FAL_netB(no_levels=args.no_levels, device=device)
@@ -122,6 +134,8 @@ def main(args, device="cpu"):
             args, train_loader0, model, g_optimizer, epoch, device, vgg_loss, scaler
         )
         train_writer.add_scalar("train_loss", train_loss, epoch)
+
+        # validate()
 
         # Apply LR schedule (after optimizer.step() has been called for recent pyTorch versions)
         g_scheduler.step()
