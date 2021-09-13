@@ -27,19 +27,17 @@ from PIL import Image
 LR_DATASETS = ["Kitti_eigen_test_improved"]
 
 
-def img_loader(input_root, path_img):
-    imgs = os.path.join(input_root, path_img)
-    return imread(path_img)
+def img_loader(path_img):
+    img = imread(path_img)
+    return img
 
 
-def kittidisp_loader(input_root, path_img):
-    disp = os.path.join(input_root, path_img)
-    # print("input_root", input_root, "path_img", path_img, "disp", disp)
+def kittidisp_loader(path_img):
     disp = imread(path_img) / 256
     return disp[:, :, np.newaxis]
 
 
-def kittidepth_loader(input_root, path_depth):
+def kittidepth_loader(path_depth):
     depth = np.load(path_depth)
     return depth[:, :, np.newaxis]
 
@@ -47,8 +45,6 @@ def kittidepth_loader(input_root, path_depth):
 class ListDataset(data.Dataset):
     def __init__(
         self,
-        input_root,
-        target_root,
         path_list,
         disp=False,
         of=False,
@@ -57,8 +53,6 @@ class ListDataset(data.Dataset):
         target_transform=None,
         co_transform=None,
     ):
-        self.input_root = input_root
-        self.target_root = target_root
         self.path_list = path_list
         self.transform = transform
         self.target_transform = target_transform
@@ -85,17 +79,17 @@ class ListDataset(data.Dataset):
         if self.data_name in LR_DATASETS:
             if self.disp:
                 targets = [
-                    self.target_loader(self.target_root, targets[0]),
-                    self.target_loader(self.target_root, targets[1]),
+                    self.target_loader(targets[0]),
+                    self.target_loader(targets[1]),
                 ]
         else:
             if self.disp:
-                targets = [self.target_loader(self.target_root, targets[0])]
+                targets = [self.target_loader(targets[0])]
 
         file_name = os.path.basename(inputs[0])[:-4]
         inputs = [
-            self.input_loader(self.input_root, inputs[0]),
-            self.input_loader(self.input_root, inputs[1]),
+            self.input_loader(inputs[0]),
+            self.input_loader(inputs[1]),
         ]
 
         if self.co_transform is not None:

@@ -24,27 +24,28 @@ from imageio import imsave
 import matplotlib.pyplot as plt
 from PIL import Image
 
-import models
+from models.FAL_netB import FAL_netB
 from misc.dataloader import load_data
 
 import torch
 import torch.utils.data
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torchvision.transforms as transforms
-import torch.nn.functional as F
+from torch.backends import cudnn
+from torchvision import transforms
+from torch.nn import functional as F
 
 from misc import utils, data_transforms
 from misc.loss_functions import realEPE
 
 
-model_names = sorted(name for name in models.__all__)
-
-
 def main(args, device="cpu"):
     print("-------Testing on " + str(device) + "-------")
 
-    save_path = os.path.join("Test_Results", args.dataset, args.model, args.time_stamp)
+    if args.model.isdigit():
+        save_path = os.path.join("test_" + args.dataset, args.model.zfill(10))
+    else:
+        model_number = args.model.split("/")[-2].zfill(10)
+        save_path = os.path.join("test_" + args.dataset, model_number)
     if args.f_post_process:
         save_path = save_path + "fpp"
     if args.ms_post_process:
@@ -97,34 +98,25 @@ def main(args, device="cpu"):
     )
 
     # create pan model
-    model_path = os.path.join(
-        args.dataset + "_stage2",
-        args.time_stamp,
-    )
-    if not os.path.exists(model_path):
-        raise Exception(
-            f"No pretrained model with timestamp {args.pretrained} was found."
+    if args.model.isdigit():
+        model_path = os.path.join(
+            args.dataset + "_stage2", args.model.zfill(10), "model_best.pth.tar"
         )
-    model_path = os.path.join(
-        model_path,
-        next(d for d in (next(os.walk(model_path))[1]) if not d[0] == "."),
-        "model_best.pth.tar",
-    )
+        if not os.path.exists(model_path):
+            model_path = os.path.join(
+                args.dataset + "_stage2", args.model.zfill(10), "checkpoint.pth.tar"
+            )
+    else:
+        model_path = args.model
 
     print(model_path)
-    pan_network_data = torch.load(model_path, map_location=torch.device(device))
 
-    pan_model = pan_network_data[
-        next(item for item in pan_network_data.keys() if "model" in str(item))
-    ]
+    pan_model = FAL_netB(no_levels=args.no_levels, device=device)
+    checkpoint = torch.load(model_path, map_location=device)
+    pan_model.load_state_dict(checkpoint["model_state_dict"])
+    if device.type == "cuda":
+        pan_model = torch.nn.DataParallel(pan_model).to(device)
 
-    print("=> using pre-trained model for pan '{}'".format(pan_model))
-    pan_model = models.__dict__[pan_model](
-        pan_network_data, no_levels=args.no_levels, device=device
-    ).to(device)
-    pan_model = torch.nn.DataParallel(pan_model).to(device)
-    if device.type == "cpu":
-        pan_model = pan_model.module.to(device)
     pan_model.eval()
     model_parameters = utils.get_n_params(pan_model)
     print("=> Number of parameters '{}'".format(model_parameters))
@@ -166,7 +158,6 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
     with torch.no_grad():
         print("with torch.no_grad():")
         for i, (input, target, _) in enumerate(val_loader):
-            # print("for i, (input, target, f_name) in enumerate(val_loader):", i)
             target = target[0].to(device)
             input_left = input[0].to(device)
             B, C, H, W = input_left.shape
@@ -255,7 +246,7 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
                     m_rgb[:, 1, :, :] = 0.432 * m_rgb[:, 1, :, :]
                     m_rgb[:, 2, :, :] = 0.45 * m_rgb[:, 2, :, :]
                     point_cloud = utils.get_point_cloud(
-                        (input_left + m_rgb) * 255, disp
+                        (input_left + m_rgb) * 255, disp, device=device
                     )
                     utils.save_point_cloud(
                         point_cloud.squeeze(0).cpu().numpy(),

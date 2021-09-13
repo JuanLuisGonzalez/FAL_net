@@ -273,7 +273,7 @@ def main():
 
     for epoch in range(args.start_epoch, args.epochs1):
         # train for one epoch
-        train_loss = train(train_loader0, model, g_optimizer, epoch)
+        loss, train_loss = train(train_loader0, model, g_optimizer, epoch)
         train_writer.add_scalar("train_loss", train_loss, epoch)
 
         # evaluate on validation set, RMSE is from stereoscopic view synthesis task
@@ -289,10 +289,12 @@ def main():
         best_rmse = min(rmse, best_rmse)
         utils.save_checkpoint(
             {
-                "epoch": epoch + 1,
-                "model": args.model,
-                "state_dict": model.module.state_dict(),
-                "best_rmse": best_rmse,
+                "epoch": EPOCH,
+                "model_state_dict": model.state_dict()
+                if device == "cpu"
+                else model.module.state_dict(),
+                "optimizer_state_dict": g_optimizer.state_dict(),
+                "loss": loss,
             },
             is_best,
             save_path,
@@ -415,7 +417,7 @@ def train(train_loader, model, g_optimizer, epoch):
         if i >= epoch_size:
             break
 
-    return losses.avg
+    return loss, losses.avg
 
 
 def validate(val_loader, model, epoch, output_writers):
@@ -457,7 +459,7 @@ def validate(val_loader, model, epoch, output_writers):
             test_time.update(time.time() - end)
 
             # Measure RMSE
-            rmse = utils.get_rmse(p_im, input_right)
+            rmse = utils.get_rmse(p_im, input_right, device=device)
             RMSES.update(rmse)
 
             # record EPE

@@ -1,13 +1,14 @@
 # Project Specific
 Kitti_stage1/
 KITTI_stage1/
+ASM_stereo_small_retrain1/
 Kitti_stage2/
 KITTI_stage2/
-Test_Results/
+test_KITTI/
 data/*
-!data/README.md 
-
+predict/
 temp/
+
 
 # Mac Specific
 .DS_Store

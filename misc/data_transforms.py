@@ -29,7 +29,7 @@ class Compose(object):
     def __init__(self, co_transforms):
         self.co_transforms = co_transforms
 
-    def __call__(self, input, target):
+    def __call__(self, input, target=None):
         for t in self.co_transforms:
             input, target = t(input, target)
         return input, target
@@ -38,7 +38,8 @@ class Compose(object):
 class ArrayToTensor(object):
     def __call__(self, array):
         assert isinstance(array, np.ndarray)
-        array = np.transpose(array, (2, 0, 1))
+        if len(array.shape) == 3 and array.shape[-1] == 3:
+            array = np.moveaxis(array, -1, 0)
         tensor = torch.from_numpy(array.copy())
         return tensor.float()
 

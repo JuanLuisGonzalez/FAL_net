@@ -171,8 +171,15 @@ raw_data_list = [
     "https://s3.eu-central-1.amazonaws.com/avg-kitti/raw_data/2011_10_03_drive_0058/2011_10_03_drive_0058_sync.zip",
 ]
 
+data_scene_flow = [
+    "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_scene_flow.zip",
+    "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_scene_flow_calib.zip",
+    "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_scene_flow_multiview.zip",
+    "https://s3.eu-central-1.amazonaws.com/avg-kitti/devkit_scene_flow.zip",
+]
 
-def download():
+
+def download_KITTI():
     try:
         check_output(["man", "mkdir"])
         check_output(["man", "wget"])
@@ -180,10 +187,11 @@ def download():
         check_output(["man", "rsync"])
         check_output(["man", "rm"])
         check_output(["man", "mv"])
+        check_output(["man", "echo"])
     except Exception as e:
         print("Program not installed", e)
         print(
-            "Make sure to install all of these Programs: man, mkdir, wget, unzip, rsync, rm, mv."
+            "Make sure to install all of these Programs: man, mkdir, wget, unzip, rsync, rm, mv, echo."
         )
         sys.exit(os.EX_OK)
 
@@ -236,3 +244,37 @@ def download():
         )
 
     return 0
+
+
+def download_KITTI2015():
+    try:
+        check_output(["man", "mkdir"])
+        check_output(["man", "wget"])
+        check_output(["man", "unzip"])
+        check_output(["man", "rsync"])
+        check_output(["man", "rm"])
+        check_output(["man", "mv"])
+        check_output(["man", "echo"])
+    except Exception as e:
+        print("Program not installed", e)
+        print(
+            "Make sure to install all of these Programs: man, mkdir, wget, unzip, rsync, rm, mv, echo."
+        )
+        sys.exit(os.EX_OK)
+
+    subprocess.run("mkdir -p ./data/KITTI2015", shell=True)
+
+    for item in data_scene_flow:
+        namewithzip = item.split("/")[-1]
+        name = namewithzip[:-4]
+        subprocess.run("mkdir -p temp", shell=True)
+        subprocess.run(f"wget {item} -nc -O ./temp/{namewithzip}", shell=True)
+        subprocess.run(
+            f"unzip -o ./temp/{namewithzip} -d ./temp/{name}",
+            shell=True,
+        )
+        rsync_cmd = f"rsync -avhP ./temp/{name}/ ./data/KITTI2015"
+        subprocess.run(rsync_cmd, shell=True)
+        subprocess.run(
+            "rm -rf ./temp && echo rm worked || echo rm did not work", shell=True
+        )

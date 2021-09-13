@@ -169,7 +169,6 @@ class BackBone(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, flow):
-        _, _, H, W = x.shape
 
         # Encoder section
         out_conv0 = self.conv0_1(self.conv0(x))

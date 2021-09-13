@@ -1,10 +1,11 @@
 import argparse
 import sys
 import os
-from misc.download_KITTI import download
+from misc.download import download_KITTI, download_KITTI2015
 
 
 def main():
+    print(" ".join(sys.argv[:]))
 
     parser = argparse.ArgumentParser(
         description="FAL_net in pytorch",
@@ -23,6 +24,7 @@ def main():
         "--dataset",
         metavar="Name of the Dataset to be used.",
         default="KITTI",
+        choices=["KITTI", "ASM_stereo_small"],
     )
 
     parser.add_argument(
@@ -74,13 +76,13 @@ def main():
         default=0.999,
     )
     parser.add_argument("-cw", "--crop_width", metavar="Batch crop W Size", default=640)
-    parser.add_argument("-save", "--save", default=False)
+    parser.add_argument("-save", "--save", action="store_true", default=False)
     parser.add_argument("--lr1", metavar="Initial Learning Rate Train1", default=0.0001)
     parser.add_argument(
         "--lr2", metavar="Initial Learning Rate Train2", default=0.00005
     )
-    parser.add_argument("-save_pc", "--save_pc", default=False)
-    parser.add_argument("-save_pan", "--save_pan", default=False)
+    parser.add_argument("-save_pc", "--save_pc", action="store_true", default=False)
+    parser.add_argument("-save_pan", "--save_pan", action="store_true", default=False)
     parser.add_argument(
         "--momentum",
         default=0.5,
@@ -92,7 +94,9 @@ def main():
     parser.add_argument(
         "-ch", "--crop_height", metavar="Batch crop H Size", default=192
     )
-    parser.add_argument("-save_input", "--save_input", default=False)
+    parser.add_argument(
+        "-save_input", "--save_input", action="store_true", default=False
+    )
     parser.add_argument("-w", "--workers", metavar="Workers", default=4, type=int)
     parser.add_argument(
         "--sparse",
@@ -166,7 +170,7 @@ def main():
         "--modus_operandi",
         default="test",
         help="Select the modus operandi.",
-        choices=["test", "train1", "train2"],
+        choices=["test", "predict", "train1", "train2", "retrain1"],
     )
     parser.add_argument(
         "--milestones1",
@@ -205,6 +209,7 @@ def main():
         metavar="N",
         help="number of total epochs to run in train stage 2",
     )
+
     parser.add_argument(
         "--epoch_size",
         default=0,
@@ -238,7 +243,12 @@ def main():
         "--bias-decay", default=0.0, type=float, metavar="B", help="bias decay"
     )
 
-    print(" ".join(sys.argv[:]))
+    parser.add_argument(
+        "--input",
+        dest="input",
+        default="./test.png",
+        help="path to the input image to be depth predicted",
+    )
 
     args = parser.parse_args()
 
@@ -247,30 +257,47 @@ def main():
     )
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
-    dataset_path = os.path.join(args.data_directory, args.dataset)
-    if not os.path.exists(dataset_path):
-        if args.dataset == "KITTI" or args.dataset == "KITTI2015":
+    if args.modus_operandi in ["test", "train1", "train2", "full"]:
+        dataset_path = os.path.join(args.data_directory, args.dataset)
+        if not os.path.exists(dataset_path) and args.dataset == "KITTI":
+            print(f"No data found at {dataset_path}.")
+            if (
+                input(f"Would you like to download {args.dataset} dataset? (y/n): ")
+                .lower()
+                .strip()[:1]
+                == "y"
+            ):
+                download_KITTI()
+
+        validation_dataset_path = os.path.join(
+            args.data_directory, args.validation_dataset
+        )
+        if (
+            not os.path.exists(validation_dataset_path)
+            and args.validation_dataset == "KITTI2015"
+        ):
+            print(f"No data found at {validation_dataset_path}.")
             if (
                 input(
-                    f"No data found at {dataset_path}. Would you like to download the {args.dataset} dataset? (y/n): "
+                    f"Would you like to download {args.validation_dataset} dataset? (y/n): "
                 )
                 .lower()
                 .strip()[:1]
                 == "y"
             ):
-                if args.dataset == "KITTI":
-                    download()
-                sys.exit(1)
+                download_KITTI2015()
 
-    if not os.path.exists(dataset_path):
-        print(f"Program aborts, as no data could be found at {dataset_path}.")
-        sys.exit(1)
+        if not os.path.exists(dataset_path):
+            print(f"Program aborts, as no data could be found at {dataset_path}.")
+            sys.exit(1)
 
     import torch
 
-    from Test_KITTI import main as test
-    from Train_Stage1_K import main as train1
-    from Train_Stage2_K import main as train2
+    from src.Test_KITTI import main as test
+    from src.Train_Stage1_K import main as train1
+    from src.Train_Stage2_K import main as train2
+    from src.predict import predict
+    from src.retrain1_ASM import main as retrain1
 
     device = torch.device("cuda" if args.gpu_indices else "cpu")
 
@@ -280,6 +307,10 @@ def main():
         train1(args, device)
     elif args.modus_operandi == "train2":
         train2(args, device)
+    elif args.modus_operandi == "predict":
+        predict(args, device)
+    elif args.modus_operandi == "retrain1":
+        retrain1(args, device)
     elif args.modus_operandi == "full":
         train1(args, device)
         train2(args, device)

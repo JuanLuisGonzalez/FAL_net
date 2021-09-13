@@ -42,9 +42,8 @@ Dl_index = 0
 Ofl_index = 1
 
 
-def img_loader(input_root, path_imgs, index):
-    imgs = [os.path.join(input_root, path) for path in path_imgs]
-    return imread(imgs[index])
+def img_loader(path_imgs, index):
+    return imread(path_imgs[index])
 
 
 class ListDataset(data.Dataset):
@@ -56,7 +55,6 @@ class ListDataset(data.Dataset):
         disp=False,
         of=False,
         transform=None,
-        target_transform=None,
         co_transform=None,
         max_pix=100,
         reference_transform=None,
@@ -67,7 +65,6 @@ class ListDataset(data.Dataset):
         self.path_list = path_list
         self.transform = transform
         self.reference_transform = reference_transform
-        self.target_transform = target_transform
         self.co_transform = co_transform
         self.disp = disp
         self.of = of
@@ -85,14 +82,14 @@ class ListDataset(data.Dataset):
         if random.random() < 0.5 or self.fix_order:
             x_pix = self.max
             inputs = [
-                self.input_loader(self.input_root, inputs, Lt_index),
-                self.input_loader(self.input_root, inputs, Rt_indexlr),
+                self.input_loader(inputs, Lt_index),
+                self.input_loader(inputs, Rt_indexlr),
             ]
         else:
             x_pix = -self.max
             inputs = [
-                self.input_loader(self.input_root, inputs, Rt_indexlr),
-                self.input_loader(self.input_root, inputs, Lt_index),
+                self.input_loader(inputs, Rt_indexlr),
+                self.input_loader(inputs, Lt_index),
             ]
 
         y_pix = np.random.uniform(low=-self.max, high=self.max)
