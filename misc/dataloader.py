@@ -29,8 +29,11 @@ def load_data(split=None, **kwargs):
     elif split == "bello_val" and dataset == "KITTI2015":
         splitfilelocation = "./splits/KITTI2015/bello_val.txt"
 
-    if dataset == "ASM_stereo_small":
-        with open(f"{input_root}/ASM_stereo_small_train", "rb") as fp:
+    if dataset == "ASM_stereo_small_train":
+        with open(f"{input_root}/{dataset}", "rb") as fp:
+            datasetlist = pickle.load(fp)
+    elif dataset == "ASM_stereo_small_test":
+        with open(f"{input_root}/{dataset}", "rb") as fp:
             datasetlist = pickle.load(fp)
     elif split is not None:
         try:
@@ -110,7 +113,7 @@ def load_data(split=None, **kwargs):
             transform=transform,
             target_transform=target_transform,
         )
-    elif split is None and dataset == "ASM_stereo_small":
+    elif dataset == "ASM_stereo_small_train":
         if create_val:
             np.random.default_rng().shuffle(datasetlist, axis=0)
             val_size = int(len(datasetlist) * create_val)
@@ -120,14 +123,12 @@ def load_data(split=None, **kwargs):
             val_set = RetrainListDataset(
                 val_list,
                 transform=transform,
-                co_transform=co_transform,
                 max_pix=max_pix,
             )
 
             dataset = RetrainListDataset(
                 datasetlist,
                 transform=transform,
-                co_transform=co_transform,
                 max_pix=max_pix,
             )
             return dataset, val_set
@@ -135,8 +136,12 @@ def load_data(split=None, **kwargs):
             dataset = RetrainListDataset(
                 datasetlist,
                 transform=transform,
-                co_transform=co_transform,
                 max_pix=max_pix,
             )
+    elif dataset == "ASM_stereo_small_test":
+        dataset = RetrainListDataset(
+            datasetlist,
+            transform=transform,
+        )
 
     return dataset

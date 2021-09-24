@@ -8,6 +8,7 @@ test_KITTI/
 data/*
 predict/
 temp/
+test/
 
 
 # Mac Specific

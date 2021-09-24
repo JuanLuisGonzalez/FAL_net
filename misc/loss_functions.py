@@ -202,7 +202,7 @@ def multiscaleEPE(network_output, target_flow, weights=None, sparse=False):
 
 
 def realEPE(output, target, sparse=False):
-    b, _, h, w = target.size()
+    _, _, h, w = target.size()
     upsampled_output = nn.functional.interpolate(
         output, size=(h, w), mode="bilinear", align_corners=True
     )

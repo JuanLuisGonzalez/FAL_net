@@ -6,6 +6,15 @@ import torch.nn.functional as F
 import shutil
 import numpy as np
 import datetime
+from skimage.metrics import (
+    adapted_rand_error,
+    hausdorff_distance,
+    mean_squared_error,
+    normalized_root_mse,
+    peak_signal_noise_ratio,
+    structural_similarity,
+    variation_of_information,
+)
 
 a = datetime.timedelta(seconds=24)
 
@@ -189,6 +198,15 @@ def get_rmse(output_right, label_right, mean=(0.411, 0.432, 0.45), device="cpu")
 
 
 kitti_error_names = ["abs_rel", "sq_rel", "rms", "log_rms", "a1", "a2", "a3"]
+image_similarity_measures = [
+    "SNEMI3D: 0",
+    "HDD: 0",
+    "MSE: 0",
+    "NRMSE: 0",
+    "PSNR: inf",
+    "SSIM: 1",
+    "SVI: 0",
+]
 
 width_to_focal = dict()
 width_to_focal[1224] = 707.0493
@@ -248,6 +266,22 @@ def compute_kitti_errors(gt, pred, use_median=False, min_d=1.0, max_d=80.0):
     return errors
 
 
+def compute_asm_errors(gt, pred):
+    gt = np.asarray(gt)
+    pred = np.asarray(pred)
+
+    errors = []
+    errors.append(adapted_rand_error(gt, pred)[0])
+    errors.append(hausdorff_distance(gt, pred))
+    errors.append(mean_squared_error(gt, pred))
+    errors.append(normalized_root_mse(gt, pred))
+    errors.append(peak_signal_noise_ratio(gt, pred))
+    errors.append(structural_similarity(gt, pred, multichannel=True))
+    errors.append(sum(variation_of_information(gt, pred)))
+
+    return errors
+
+
 def disps_to_depths_kitti2015(gt_disparities, pred_disparities):
     gt_depths = []
     pred_depths = []
@@ -256,7 +290,7 @@ def disps_to_depths_kitti2015(gt_disparities, pred_disparities):
         gt_disp = gt_disparities[i]
         pred_disp = pred_disparities[i]
 
-        height, width = gt_disp.shape
+        _height, width = gt_disp.shape
 
         gt_mask = gt_disp > 0
         pred_mask = pred_disp > 0
@@ -270,32 +304,31 @@ def disps_to_depths_kitti2015(gt_disparities, pred_disparities):
     return gt_depths, pred_depths
 
 
-def disps_to_depths_kitti(gt_disparities, pred_disparities):
-    gt_depths = []
+def disps_to_depths_kitti(gt_depths, pred_disparities):
+    gt_depths_processed = []
     pred_depths = []
 
-    for i in range(len(gt_disparities)):
-        gt_disp = gt_disparities[i]
+    for i in range(len(gt_depths)):
+        gt_depth = gt_depths[i]
         pred_disp = pred_disparities[i]
 
-        height, width = gt_disp.shape
-        gt_disp = gt_disp[height - 219 : height - 4, 44:1180]
+        height, width = gt_depth.shape
+        gt_depth = gt_depth[height - 219 : height - 4, 44:1180]
         pred_disp = pred_disp[height - 219 : height - 4, 44:1180]
 
-        gt_mask = gt_disp > 0
+        gt_mask = gt_depth > 0
         pred_mask = pred_disp > 0
 
-        gt_depth = gt_disp
         pred_depth = (
             width_to_focal[width]
             * width_to_baseline[width]
             / (pred_disp + (1.0 - pred_mask))
         )
 
-        gt_depths.append(gt_mask * gt_depth)
+        gt_depths_processed.append(gt_mask * gt_depth)
         pred_depths.append(pred_depth)
 
-    return gt_depths, pred_depths
+    return gt_depths_processed, pred_depths
 
 
 def disp_to_depth(pred_disparities):

@@ -18,8 +18,7 @@
 
 import torch.utils.data as data
 import numpy as np
-from skimage.transform import resize
-from skimage.util import img_as_ubyte
+from PIL import Image
 
 
 class ListDataset(data.Dataset):
@@ -27,13 +26,11 @@ class ListDataset(data.Dataset):
         self,
         img_array,
         transform=None,
-        co_transform=None,
         max_pix=100,
     ):
         self.img_array = img_array
         self.transform = transform
-        self.co_transform = co_transform
-        self.max = max_pix
+        self.max_pix = max_pix
 
     def __len__(self):
         return len(self.img_array)
@@ -41,30 +38,13 @@ class ListDataset(data.Dataset):
     def __getitem__(self, index):
         inputs = self.img_array[index]
 
-        x_pix = self.max
         inputs = np.moveaxis(inputs, 1, -1)
         inputs = [inputs[0], inputs[1]]
-        inputs[0] = img_as_ubyte(
-            resize(
-                inputs[0],
-                (inputs[0].shape[0] * 2, inputs[0].shape[1] * 2),
-                anti_aliasing=True,
-            )
-        )
-        inputs[1] = img_as_ubyte(
-            resize(
-                inputs[1],
-                (inputs[1].shape[0] * 2, inputs[1].shape[1] * 2),
-                anti_aliasing=True,
-            )
-        )
+        inputs[0] = Image.fromarray(inputs[0])
+        inputs[1] = Image.fromarray(inputs[1])
 
-        # print("type(inputs[0])", type(inputs[0]))
-        if self.co_transform is not None:
-            inputs, _ = self.co_transform(inputs)
         if self.transform is not None:
-            for i in range(len(inputs)):
-                inputs[i] = self.transform(inputs[i])
+            inputs = self.transform(inputs)
 
         # print("inputs.shape", np.asarray(inputs).shape)
-        return inputs, x_pix
+        return inputs, self.max_pix

@@ -169,15 +169,6 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
             flip_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=False)
             flip_grid[:, :, :, 0] = -flip_grid[:, :, :, 0]
 
-            # Convert min and max disp to bx1x1 tensors
-            max_disp = (
-                torch.Tensor([right_shift])
-                .unsqueeze(1)
-                .unsqueeze(1)
-                .type(input_left.type())
-            )
-            min_disp = max_disp * args.min_disp / args.max_disp
-
             # Synthesis
             end = time.time()
 
@@ -185,8 +176,8 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
             if args.save_pan:
                 pan_im, disp, maskL, maskRL, dispr = pan_model(
                     input_left=input_left,
-                    min_disp=min_disp,
-                    max_disp=max_disp,
+                    min_disp=args.min_disp,
+                    max_disp=args.max_disp,
                     ret_disp=True,
                     ret_subocc=True,
                     ret_pan=True,
@@ -197,8 +188,8 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
             else:
                 disp = pan_model(
                     input_left=input_left,
-                    min_disp=min_disp,
-                    max_disp=max_disp,
+                    min_disp=torch.tensor([args.min_disp]).to(device),
+                    max_disp=torch.tensor([args.max_disp]).to(device),
                     ret_disp=True,
                     ret_subocc=False,
                     ret_pan=False,
@@ -210,8 +201,8 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
                     input_left=F.grid_sample(
                         input_left, flip_grid, align_corners=False
                     ),
-                    min_disp=min_disp,
-                    max_disp=max_disp,
+                    min_disp=torch.tensor([args.min_disp]).to(device),
+                    max_disp=torch.tensor([args.max_disp]).to(device),
                     ret_disp=True,
                     ret_pan=False,
                     ret_subocc=False,
@@ -219,7 +210,14 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
                 flip_disp = F.grid_sample(flip_disp, flip_grid, align_corners=False)
                 disp = (disp + flip_disp) / 2
             elif args.ms_post_process:
-                disp = ms_pp(input_left, pan_model, flip_grid, disp, min_disp, max_disp)
+                disp = ms_pp(
+                    input_left,
+                    pan_model,
+                    flip_grid,
+                    disp,
+                    torch.tensor([args.min_disp]).to(device),
+                    torch.tensor([args.max_disp]).to(device),
+                )
 
             # measure elapsed time
             batch_time.update(time.time() - end, 1)

@@ -32,31 +32,21 @@ def FAL_netB(data=None, no_levels=49, device="cuda"):
 
 
 def conv_elu(batchNorm, in_planes, out_planes, kernel_size=3, stride=1, pad=1):
+    layers = []
+    layers.append(
+        nn.Conv2d(
+            in_planes,
+            out_planes,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=pad,
+            bias=False if batchNorm else True,
+        )
+    )
     if batchNorm:
-        return nn.Sequential(
-            nn.Conv2d(
-                in_planes,
-                out_planes,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=pad,
-                bias=False,
-            ),
-            nn.BatchNorm2d(out_planes),
-            nn.ELU(inplace=True),
-        )
-    else:
-        return nn.Sequential(
-            nn.Conv2d(
-                in_planes,
-                out_planes,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=pad,
-                bias=True,
-            ),
-            nn.ELU(inplace=True),
-        )
+        layers.append(nn.BatchNorm2d(out_planes))
+    layers.append(nn.ELU(inplace=True))
+    return nn.Sequential(*layers)
 
 
 class deconv(nn.Module):
@@ -210,7 +200,6 @@ class FAL_net(nn.Module):
     def __init__(self, batchNorm, no_levels, device):
         super(FAL_net, self).__init__()
         self.no_levels = no_levels
-        self.no_fac = 1
         self.backbone = BackBone(batchNorm, no_in=3, no_flow=1, no_out=self.no_levels)
         self.softmax = nn.Softmax(dim=1)
         self.elu = nn.ELU(inplace=True)
@@ -220,7 +209,7 @@ class FAL_net(nn.Module):
         # An additional 1x1 conv layer on the logits (not shown in paper). Its contribution should not be much.
         self.conv0 = nn.Conv2d(
             self.no_levels,
-            self.no_fac * self.no_levels,
+            self.no_levels,
             kernel_size=1,
             stride=1,
             padding=0,
@@ -254,7 +243,9 @@ class FAL_net(nn.Module):
 
         # convert into 1 channel feature
         flow = torch.ones(B, 1, H, W).type(input_left.type())
-        flow[:, 0, :, :] = max_disp * flow[:, 0, :, :] / 100  # normalized?
+        flow = (
+            max_disp * flow / 100
+        )  # normalized? arne: no probably not, as this tensor is filled with 3 for default max_disp
 
         # Synthesize zoomed image
         dlog = self.backbone(input_left, flow)
@@ -267,11 +258,14 @@ class FAL_net(nn.Module):
         if ret_disp:
             disp = 0
 
-            for n in range(0, self.no_levels * self.no_fac):
+            for n in range(0, self.no_levels):
                 with torch.no_grad():
-                    c = n / (self.no_levels * self.no_fac - 1)  # Goes from 0 to 1
-                    w = max_disp * torch.exp(torch.log(max_disp / min_disp) * (c - 1))
-                disp = disp + w.unsqueeze(1) * sm_dlog0[:, n, :, :].unsqueeze(1)
+                    c = n / (self.no_levels - 1)  # Goes from 0 to 1
+                    weight = max_disp * torch.exp(
+                        torch.log(max_disp / min_disp) * (c - 1)
+                    )
+                disp = disp + weight.unsqueeze(1) * sm_dlog0[:, n, :, :].unsqueeze(1)
+                # print("disp.shape", disp.shape)
 
         if ret_disp and not ret_subocc and not ret_pan:
             return disp
@@ -281,10 +275,10 @@ class FAL_net(nn.Module):
         i_tetha[:, 1, 1] = 1
         i_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=True)
 
-        for n in range(0, self.no_levels * self.no_fac):
+        for n in range(0, self.no_levels):
             with torch.no_grad():
                 # Exponential quantization
-                c = n / (self.no_levels * self.no_fac - 1)  # Goes from 0 to 1
+                c = n / (self.no_levels - 1)  # Goes from 0 to 1
                 # x_of = c * (x_pix_max - x_pix_min) + x_pix_min # This is linear quantization
                 x_of = x_pix_max * torch.exp(torch.log(x_pix_max / x_pix_min) * (c - 1))
                 out_grid = i_grid.clone()
@@ -310,10 +304,10 @@ class FAL_net(nn.Module):
         maskR = 0
         maskL = 0
         dispr = 0
-        for n in range(0, self.no_levels * self.no_fac):
+        for n in range(0, self.no_levels):
             with torch.no_grad():
                 # Exponential quantization
-                c = n / (self.no_levels * self.no_fac - 1)  # Goes from 0 to 1
+                c = n / (self.no_levels - 1)  # Goes from 0 to 1
                 # x_of = c * (x_pix_max - x_pix_min) + x_pix_min # This is linear quantization
                 x_of = x_pix_max * torch.exp(torch.log(x_pix_max / x_pix_min) * (c - 1))
                 out_grid = i_grid.clone()

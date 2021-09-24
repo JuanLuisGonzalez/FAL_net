@@ -24,7 +24,7 @@ def main():
         "--dataset",
         metavar="Name of the Dataset to be used.",
         default="KITTI",
-        choices=["KITTI", "ASM_stereo_small"],
+        choices=["KITTI", "ASM_stereo_small_test"],
     )
 
     parser.add_argument(
@@ -293,7 +293,8 @@ def main():
 
     import torch
 
-    from src.Test_KITTI import main as test
+    from src.Test_KITTI import main as test_kitti
+    from src.test_asm import main as test_asm
     from src.Train_Stage1_K import main as train1
     from src.Train_Stage2_K import main as train2
     from src.predict import predict
@@ -302,7 +303,10 @@ def main():
     device = torch.device("cuda" if args.gpu_indices else "cpu")
 
     if args.modus_operandi == "test":
-        test(args, device)
+        if "KITTI" in args.dataset:
+            test_kitti(args, device)
+        if "ASM" in args.dataset:
+            test_asm(args, device)
     elif args.modus_operandi == "train1":
         train1(args, device)
     elif args.modus_operandi == "train2":
@@ -314,7 +318,7 @@ def main():
     elif args.modus_operandi == "full":
         train1(args, device)
         train2(args, device)
-        test(args, device)
+        test_kitti(args, device)
     else:
         raise Exception(f"{args.modus_operandi} is not a valid modus operandi.")
 
