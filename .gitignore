@@ -2,13 +2,16 @@
 Kitti_stage1/
 KITTI_stage1/
 ASM_stereo_small_retrain1/
+ASM_stereo_train_stage1/
+ASM_stereo_train_retrain1/
 Kitti_stage2/
 KITTI_stage2/
-test_KITTI/
+KITTI_train1k
 data/*
-predict/
 temp/
-test/
+eigen/
+reference/
+predictions/
 
 
 # Mac Specific

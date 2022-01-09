@@ -17,26 +17,16 @@ from misc.loss_functions import smoothness, VGGLoss
 
 def main(args, device="cpu"):
     print("-------Training Stage 1 on " + str(device) + "-------")
+
     best_rec_loss = -1
 
-    save_path = os.path.join(args.dataset + "_retrain1")
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-    _, sub_directories, _ = next(os.walk(save_path))
-    filtered = filter(lambda x: x.isdigit(), sorted(sub_directories))
-    idx = len(list(filtered))
-    save_path = os.path.join(save_path, str(idx).zfill(10))
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-
-    utils.display_config(args, save_path)
-    print("=> will save everything to {}".format(save_path))
-
     # Set output writters for showing up progress on tensorboardX
-    train_writer = SummaryWriter(os.path.join(save_path, "train"))
+    train_writer = SummaryWriter(os.path.join(args.save_path, "train"))
     output_writers = []
     for i in range(3):
-        output_writers.append(SummaryWriter(os.path.join(save_path, "test", str(i))))
+        output_writers.append(
+            SummaryWriter(os.path.join(args.save_path, "test", str(i)))
+        )
 
     # Set up data augmentations
     co_transform = data_transforms.Compose(
@@ -116,10 +106,10 @@ def main(args, device="cpu"):
     ]
     if args.optimizer == "adam":
         g_optimizer = torch.optim.Adam(
-            params=param_groups, lr=args.lr1, betas=(args.momentum, args.beta)
+            params=param_groups, lr=args.lr, betas=(args.momentum, args.beta)
         )
     g_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        g_optimizer, milestones=args.milestones1, gamma=0.5
+        g_optimizer, milestones=args.milestones, gamma=0.5
     )
 
     for epoch in range(args.start_epoch):
@@ -128,7 +118,7 @@ def main(args, device="cpu"):
     vgg_loss = VGGLoss(device=device)
     scaler = GradScaler()
 
-    for epoch in range(args.start_epoch, args.epochs1):
+    for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
         loss, train_loss, rec_loss = train(
             args, train_loader0, model, g_optimizer, epoch, device, vgg_loss, scaler
@@ -154,7 +144,7 @@ def main(args, device="cpu"):
                 "loss": loss,
             },
             is_best,
-            save_path,
+            args.save_path,
         )
 
 
@@ -214,7 +204,7 @@ def train(args, train_loader, model, g_optimizer, epoch, device, vgg_loss, scale
 
             #  Compute smooth loss
             sm_loss = 0
-            if args.smooth1 > 0:
+            if args.smooth > 0:
                 # Here we ignore the 20% left dis-occluded region, as there is no suppervision for it due to parralax
                 sm_loss = smoothness(
                     left_view[:, :, :, int(0.20 * W) : :],
@@ -224,7 +214,7 @@ def train(args, train_loader, model, g_optimizer, epoch, device, vgg_loss, scale
                 )
 
             # compute gradient and do optimization step
-            loss = rec_loss + args.smooth1 * sm_loss
+            loss = rec_loss + args.smooth * sm_loss
             losses.update(loss.detach().cpu(), args.batch_size)
         scaler.scale(loss).backward()
         scaler.step(g_optimizer)
@@ -237,7 +227,7 @@ def train(args, train_loader, model, g_optimizer, epoch, device, vgg_loss, scale
 
         if i % args.print_freq == 0:
             eta = utils.eta_calculator(
-                batch_time.get_avg(), epoch_size, args.epochs1 - epoch, i
+                batch_time.get_avg(), epoch_size, args.epochs - epoch, i
             )
             print(
                 f"Epoch: [{epoch}][{i}/{epoch_size}] ETA {eta} Batch Time {batch_time}  Loss {losses} RecLoss {rec_losses}"

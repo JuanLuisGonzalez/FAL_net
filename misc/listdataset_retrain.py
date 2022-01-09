@@ -37,11 +37,11 @@ class ListDataset(data.Dataset):
 
     def __getitem__(self, index):
         inputs = self.img_array[index]
-
-        inputs = np.moveaxis(inputs, 1, -1)
-        inputs = [inputs[0], inputs[1]]
-        inputs[0] = Image.fromarray(inputs[0])
-        inputs[1] = Image.fromarray(inputs[1])
+        if isinstance(inputs[0], np.ndarray):
+            inputs = np.moveaxis(inputs, 1, -1)
+            inputs = [inputs[0], inputs[1]]
+            inputs[0] = Image.fromarray(inputs[0])
+            inputs[1] = Image.fromarray(inputs[1])
 
         if self.transform is not None:
             inputs = self.transform(inputs)

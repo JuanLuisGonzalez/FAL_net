@@ -5,7 +5,7 @@ import os
 device = torch.device("cpu")
 model = FAL_netB(no_levels=49, device=device)
 checkpoint = torch.load(
-    "./KITTI_stage1/08-25-11_55/FAL_netB,e50es,b16,lr0.0001/model_best.pth.tar",
+    "/home/arne/proc/asm/code/FAL_net/reference/KITTI_stage1",
     map_location=device,
 )
 # print((checkpoint.keys()))
@@ -19,5 +19,5 @@ torch.save(
         "optimizer_state_dict": None,
         "loss": None,
     },
-    os.path.join("./lel/", "model_best.pth.tar"),
+    "/home/arne/proc/asm/code/FAL_net/reference/KITTI_stage1",
 )

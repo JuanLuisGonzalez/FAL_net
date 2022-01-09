@@ -20,7 +20,6 @@ import os
 
 import time
 import numpy as np
-from imageio import imsave
 import matplotlib.pyplot as plt
 from PIL import Image
 
@@ -40,24 +39,10 @@ from misc import utils, data_transforms
 def main(args, device="cpu"):
     print("-------Testing on " + str(device) + "-------")
 
-    if args.model.isdigit():
-        save_path = os.path.join("test", args.dataset, args.model.zfill(10))
-    else:
-        model_number = args.model.split("/")[-2].zfill(10)
-        save_path = os.path.join("test", args.dataset, model_number)
-    if args.f_post_process:
-        save_path = save_path + "fpp"
-    if args.ms_post_process:
-        save_path = save_path + "mspp"
-    print("=> Saving to {}".format(save_path))
-
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-    utils.display_config(args, save_path)
-
     input_transform = data_transforms.ApplyToMultiple(
         transforms.Compose(
             [
+                transforms.Resize(size=(320, 320)),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1]),
             ]
@@ -84,10 +69,9 @@ def main(args, device="cpu"):
 
     print("len(test_dataset)", len(test_dataset))
     # Torch Data Loader
-    # args.batch_size = 1  # kitty mixes image sizes!
     val_loader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=args.batch_size,
+        batch_size=1,
         num_workers=args.workers,
         pin_memory=False,
         shuffle=False,
@@ -96,16 +80,7 @@ def main(args, device="cpu"):
     print("len(val_loader)", len(val_loader))
 
     # create pan model
-    if args.model.isdigit():
-        model_path = os.path.join(
-            args.dataset + "_stage2", args.model.zfill(10), "model_best.pth.tar"
-        )
-        if not os.path.exists(model_path):
-            model_path = os.path.join(
-                args.dataset + "_stage2", args.model.zfill(10), "checkpoint.pth.tar"
-            )
-    else:
-        model_path = args.model
+    model_path = args.model
 
     print(model_path)
 
@@ -126,7 +101,7 @@ def main(args, device="cpu"):
         args,
         val_loader,
         pan_model,
-        save_path,
+        args.save_path,
         model_parameters,
         device,
         output_transforms,
@@ -149,7 +124,7 @@ def validate(
         os.makedirs(input_path)
 
     # Set the max disp
-    right_shift = args.max_disp * args.rel_baset
+    right_shift = args.max_disp * args.relative_baseline
 
     with torch.no_grad():
         print("with torch.no_grad():")
@@ -246,9 +221,8 @@ def validate(
         f.write("\nEPE {}\n".format(EPEs.avg))
         f.write("\nKitti metrics: \n{}\n".format(asm_erros))
 
-    if args.evaluate:
-        print("* EPE: {0}".format(EPEs.avg))
-        print(asm_erros)
+    print("* EPE: {0}".format(EPEs.avg))
+    print(asm_erros)
 
 
 def ms_pp(input_view, pan_model, flip_grid, disp, min_disp, max_pix):

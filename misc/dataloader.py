@@ -1,7 +1,10 @@
-import os.path, csv, pickle
+import csv, pickle
+import os.path as path
 from misc.listdataset_test import ListDataset as TestListDataset
 from misc.listdataset_train import ListDataset as TrainListDataset
 from misc.listdataset_retrain import ListDataset as RetrainListDataset
+from misc.listdataset_run import ListDataset as EigentestListDataset
+
 
 from random import shuffle
 from misc.utils import flatten
@@ -24,16 +27,24 @@ def load_data(split=None, **kwargs):
 
     if split == "eigen_test_improved" and dataset == "KITTI":
         splitfilelocation = "./splits/KITTI/eigen_test_improved.txt"
+    elif split == "eigen_test_classic" and dataset == "KITTI":
+        splitfilelocation = "./splits/KITTI/eigen_test_classic.txt"
     elif split == "eigen_train" and dataset == "KITTI":
         splitfilelocation = "./splits/KITTI/eigen_train.txt"
     elif split == "bello_val" and dataset == "KITTI2015":
         splitfilelocation = "./splits/KITTI2015/bello_val.txt"
 
     if dataset == "ASM_stereo_small_train":
-        with open(f"{input_root}/{dataset}", "rb") as fp:
+        with open(path.join(input_root, dataset), "rb") as fp:
             datasetlist = pickle.load(fp)
     elif dataset == "ASM_stereo_small_test":
-        with open(f"{input_root}/{dataset}", "rb") as fp:
+        with open(path.join(input_root, dataset), "rb") as fp:
+            datasetlist = pickle.load(fp)
+    elif dataset == "ASM_stereo_train":
+        with open(path.join(input_root, dataset), "rb") as fp:
+            datasetlist = pickle.load(fp)
+    elif dataset == "ASM_stereo_test":
+        with open(path.join(input_root, dataset), "rb") as fp:
             datasetlist = pickle.load(fp)
     elif split is not None:
         try:
@@ -43,13 +54,19 @@ def load_data(split=None, **kwargs):
 
         datasetreader = csv.reader(datasetfile, delimiter=",")
         datasetlist = []
-        for row in datasetreader:
+        for i, row in enumerate(datasetreader):
             if split == "eigen_test_improved" and dataset == "KITTI":
                 inputleft = f"{input_root}{row[0]}"
                 inputright = f"{input_root}{row[1]}"
                 groundtruthleft = f"{input_root}{row[2]}"
                 velodyneleft = f"{input_root}{row[3]}"
                 files = [[inputleft, inputright], [groundtruthleft, velodyneleft]]
+
+            if split == "eigen_test_classic" and dataset == "KITTI":
+                info = row[0].split(" ")
+                inputleft = f"/{info[0].split('/')[1]}/image_02/data/{info[1]}.png"
+                inputleft = f"{input_root}{inputleft}"
+                files = [inputleft]
 
             elif split == "eigen_train" and dataset == "KITTI":
                 inputleft = f"{input_root}{row[0]}"
@@ -69,12 +86,12 @@ def load_data(split=None, **kwargs):
                 ]
 
             if all(
-                map(lambda x: True if x == None else os.path.isfile(x), flatten(files))
+                map(lambda x: True if x == None else path.isfile(x), flatten(files))
             ):
                 datasetlist.append(files)
             else:
                 for item in flatten(files):
-                    if item != None and not os.path.isfile(item):
+                    if item != None and not path.isfile(item):
                         raise Exception(f"Could not load file in location {item}.")
 
     if shuffle_test and isinstance(datasetlist, list):
@@ -91,6 +108,12 @@ def load_data(split=None, **kwargs):
             transform=transform,
             target_transform=target_transform,
         )
+    if split == "eigen_test_classic" and dataset == "KITTI":
+        dataset = EigentestListDataset(
+            path_list=flatten(datasetlist),
+            transform=transform,
+        )
+
     elif split == "eigen_train" and dataset == "KITTI":
         dataset = TrainListDataset(
             input_root,
@@ -113,7 +136,7 @@ def load_data(split=None, **kwargs):
             transform=transform,
             target_transform=target_transform,
         )
-    elif dataset == "ASM_stereo_small_train":
+    elif dataset == "ASM_stereo_small_train" or dataset == "ASM_stereo_train":
         if create_val:
             np.random.default_rng().shuffle(datasetlist, axis=0)
             val_size = int(len(datasetlist) * create_val)
@@ -138,7 +161,7 @@ def load_data(split=None, **kwargs):
                 transform=transform,
                 max_pix=max_pix,
             )
-    elif dataset == "ASM_stereo_small_test":
+    elif dataset == "ASM_stereo_small_test" or dataset == "ASM_stereo_test":
         dataset = RetrainListDataset(
             datasetlist,
             transform=transform,

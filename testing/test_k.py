@@ -36,25 +36,11 @@ from torch.nn import functional as F
 
 from misc import utils, data_transforms
 from misc.loss_functions import realEPE
+from misc.postprocessing import ms_pp, local_normalization
 
 
 def main(args, device="cpu"):
     print("-------Testing on " + str(device) + "-------")
-
-    if args.model.isdigit():
-        save_path = os.path.join("test_" + args.dataset, args.model.zfill(10))
-    else:
-        model_number = args.model.split("/")[-2].zfill(10)
-        save_path = os.path.join("test_" + args.dataset, model_number)
-    if args.f_post_process:
-        save_path = save_path + "fpp"
-    if args.ms_post_process:
-        save_path = save_path + "mspp"
-    print("=> Saving to {}".format(save_path))
-
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-    utils.display_config(args, save_path)
 
     input_transform = transforms.Compose(
         [
@@ -88,7 +74,6 @@ def main(args, device="cpu"):
     print("len(test_dataset)", len(test_dataset))
     # Torch Data Loader
     args.batch_size = 1  # kitty mixes image sizes!
-    args.sparse = True  # disparities are sparse (from lidar)
     val_loader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=args.batch_size,
@@ -98,16 +83,7 @@ def main(args, device="cpu"):
     )
 
     # create pan model
-    if args.model.isdigit():
-        model_path = os.path.join(
-            args.dataset + "_stage2", args.model.zfill(10), "model_best.pth.tar"
-        )
-        if not os.path.exists(model_path):
-            model_path = os.path.join(
-                args.dataset + "_stage2", args.model.zfill(10), "checkpoint.pth.tar"
-            )
-    else:
-        model_path = args.model
+    model_path = args.model
 
     print(model_path)
 
@@ -124,7 +100,7 @@ def main(args, device="cpu"):
 
     print("len(val_loader)", len(val_loader))
     # evaluate on validation set
-    validate(args, val_loader, pan_model, save_path, model_parameters, device)
+    validate(args, val_loader, pan_model, args.save_path, model_parameters, device)
 
 
 def validate(args, val_loader, pan_model, save_path, model_param, device):
@@ -151,9 +127,6 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
     feats_path = os.path.join(save_path, "feats")
     if not os.path.exists(feats_path):
         os.makedirs(feats_path)
-
-    # Set the max disp
-    right_shift = args.max_disp * args.rel_baset
 
     with torch.no_grad():
         print("with torch.no_grad():")
@@ -293,36 +266,35 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
                                 np.rint(feature).astype(np.uint8),
                             )
 
-            if args.evaluate:
-                # Record kitti metrics
-                target_disp = target.squeeze(1).cpu().numpy()
-                pred_disp = disp.squeeze(1).cpu().numpy()
-                if (
-                    args.dataset == "Kitti_eigen_test_improved"
-                    or args.dataset == "Kitti_eigen_test_original"
-                    or args.dataset == "KITTI"
-                ):
-                    target_depth, pred_depth = utils.disps_to_depths_kitti(
-                        target_disp, pred_disp
-                    )
-                    kitti_erros.update(
-                        utils.compute_kitti_errors(
-                            target_depth[0], pred_depth[0], use_median=args.median
-                        ),
-                        target.size(0),
-                    )
-                if args.dataset == "Kitti2015":
-                    EPE = realEPE(disp, target, sparse=True)
-                    EPEs.update(EPE.detach(), target.size(0))
-                    target_depth, pred_depth = utils.disps_to_depths_kitti2015(
-                        target_disp, pred_disp
-                    )
-                    kitti_erros.update(
-                        utils.compute_kitti_errors(
-                            target_depth[0], pred_depth[0], use_median=args.median
-                        ),
-                        target.size(0),
-                    )
+            # Record kitti metrics
+            target_disp = target.squeeze(1).cpu().numpy()
+            pred_disp = disp.squeeze(1).cpu().numpy()
+            if (
+                args.dataset == "Kitti_eigen_test_improved"
+                or args.dataset == "Kitti_eigen_test_original"
+                or args.dataset == "KITTI"
+            ):
+                target_depth, pred_depth = utils.disps_to_depths_kitti(
+                    target_disp, pred_disp
+                )
+                kitti_erros.update(
+                    utils.compute_kitti_errors(
+                        target_depth[0], pred_depth[0], use_median=False
+                    ),
+                    target.size(0),
+                )
+            if args.dataset == "Kitti2015":
+                EPE = realEPE(disp, target, sparse=True)
+                EPEs.update(EPE.detach(), target.size(0))
+                target_depth, pred_depth = utils.disps_to_depths_kitti2015(
+                    target_disp, pred_disp
+                )
+                kitti_erros.update(
+                    utils.compute_kitti_errors(
+                        target_depth[0], pred_depth[0], use_median=False
+                    ),
+                    target.size(0),
+                )
 
             if i % args.print_freq == 0:
                 print(
@@ -337,59 +309,5 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
         f.write("\nEPE {}\n".format(EPEs.avg))
         f.write("\nKitti metrics: \n{}\n".format(kitti_erros))
 
-    if args.evaluate:
-        print("* EPE: {0}".format(EPEs.avg))
-        print(kitti_erros)
-
-
-def ms_pp(input_view, pan_model, flip_grid, disp, min_disp, max_pix):
-    _, _, H, W = input_view.shape
-
-    up_fac = 2 / 3
-    upscaled = F.interpolate(
-        F.grid_sample(input_view, flip_grid, align_corners=False),
-        scale_factor=up_fac,
-        mode="bilinear",
-        align_corners=True,
-        recompute_scale_factor=True,
-    )
-    dwn_flip_disp = pan_model(
-        input_left=upscaled,
-        min_disp=min_disp,
-        max_disp=max_pix,
-        ret_disp=True,
-        ret_pan=False,
-        ret_subocc=False,
-    )
-    dwn_flip_disp = (1 / up_fac) * F.interpolate(
-        dwn_flip_disp, size=(H, W), mode="nearest"
-    )  # , align_corners=True)
-    dwn_flip_disp = F.grid_sample(dwn_flip_disp, flip_grid, align_corners=False)
-
-    norm = disp / (np.percentile(disp.detach().cpu().numpy(), 95) + 1e-6)
-    norm[norm > 1] = 1
-
-    return (1 - norm) * disp + norm * dwn_flip_disp
-
-
-def local_normalization(img, win=3):
-    B, C, _, _ = img.shape
-    mean = [0.411, 0.432, 0.45]
-    m_rgb = torch.ones((B, C, 1, 1)).type(img.type())
-    m_rgb[:, 0, :, :] = mean[0] * m_rgb[:, 0, :, :]
-    m_rgb[:, 1, :, :] = mean[1] * m_rgb[:, 1, :, :]
-    m_rgb[:, 2, :, :] = mean[2] * m_rgb[:, 2, :, :]
-
-    img = img + m_rgb
-    img = img.cpu()
-
-    # Get mean and normalize
-    win_mean_T = F.avg_pool2d(
-        img, kernel_size=win, stride=1, padding=(win - 1) // 2
-    )  # B,C,H,W
-    win_std = F.avg_pool2d(
-        (img - win_mean_T) ** 2, kernel_size=win, stride=1, padding=(win - 1) // 2
-    ) ** (1 / 2)
-    win_norm_img = (img - win_mean_T) / (win_std + 0.0000001)
-
-    return win_norm_img
+    print("* EPE: {0}".format(EPEs.avg))
+    print(kitti_erros)

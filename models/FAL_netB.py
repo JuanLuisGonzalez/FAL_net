@@ -243,8 +243,8 @@ class FAL_net(nn.Module):
 
         # convert into 1 channel feature
         flow = torch.ones(B, 1, H, W).type(input_left.type())
-        flow = (
-            max_disp * flow / 100
+        flow[:, 0, :, :] = (
+            max_disp * flow[:, 0, :, :] / 100
         )  # normalized? arne: no probably not, as this tensor is filled with 3 for default max_disp
 
         # Synthesize zoomed image

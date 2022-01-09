@@ -18,17 +18,9 @@
 
 # import torch.utils.data as data
 from torch.utils import data
-import os
-import os.path
-from imageio import imread
+from PIL import Image
 
 LR_DATASETS = ["Kitti_eigen_test_improved"]
-
-
-def img_loader(path_img):
-    print("path_img", path_img)
-    img = imread(path_img)
-    return img
 
 
 class ListDataset(data.Dataset):
@@ -46,7 +38,7 @@ class ListDataset(data.Dataset):
     def __getitem__(self, index):
         input = self.path_list[index]
 
-        input = img_loader(input)
+        input = Image.open(input)
 
         if self.transform is not None:
             input = self.transform(input)
