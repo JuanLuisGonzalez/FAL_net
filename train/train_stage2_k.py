@@ -53,19 +53,27 @@ def main(args, device="cpu"):
             SummaryWriter(os.path.join(args.save_path, "test", str(i)))
         )
 
-    # Set up data augmentations
-    co_transform = data_transforms.Compose(
-        [
-            data_transforms.RandomResizeCrop(
-                (args.crop_height, args.crop_width), down=0.75, up=1.5
-            ),
-            data_transforms.RandomHorizontalFlip(),
-            data_transforms.RandomGamma(min=0.8, max=1.2),
-            data_transforms.RandomBrightness(min=0.5, max=2.0),
-            data_transforms.RandomCBrightness(min=0.8, max=1.2),
-        ]
+    transform = data_transforms.ApplyToMultiple(
+        transforms.Compose(
+            [
+                transforms.RandomResizedCrop(
+                    size=(args.crop_height, args.crop_width),
+                    scale=(0.10, 1.0),
+                    ratio=(1, 1),
+                ),
+                transforms.ColorJitter(
+                    brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2
+                ),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.3606, 0.3789, 0.3652], std=[0.3123, 0.3173, 0.3216]
+                ),  # (input - mean) / std
+            ]
+        ),
+        RandomHorizontalFlipChance=0.5,
     )
 
+    # Set up data augmentations
     input_transform = transforms.Compose(
         [
             data_transforms.ArrayToTensor(),
@@ -76,24 +84,16 @@ def main(args, device="cpu"):
         ]
     )
 
-    target_transform = transforms.Compose(
-        [
-            data_transforms.ArrayToTensor(),
-            transforms.Normalize(mean=[0], std=[1]),
-        ]
-    )
+    target_transform = transforms.Compose([data_transforms.ArrayToTensor()])
 
     # Torch Data Set List
     input_path = os.path.join(args.data_directory, args.dataset)
-    train_dataset0 = load_data(
+    train_dataset = load_data(
         split=args.train_split,
         dataset=args.dataset,
         root=input_path,
-        transform=input_transform,
-        target_transform=target_transform,
-        co_transform=co_transform,
+        transform=transform,
         max_pix=args.max_disp,
-        fix=True,
     )
     input_path = os.path.join(args.data_directory, args.validation_dataset)
     test_dataset = load_data(
@@ -101,16 +101,14 @@ def main(args, device="cpu"):
         dataset=args.validation_dataset,
         root=input_path,
         disp=True,
-        of=False,
         shuffle_test=False,
         transform=input_transform,
         target_transform=target_transform,
-        co_transform=co_transform,
     )
 
     # Torch Data Loaders
-    train_loader0 = torch.utils.data.DataLoader(
-        train_dataset0,
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
         batch_size=args.batch_size,
         num_workers=args.workers,
         pin_memory=False,
@@ -124,7 +122,7 @@ def main(args, device="cpu"):
         shuffle=False,
     )
 
-    print("len(train_loader0)", len(train_loader0))
+    print("len(train_loader)", len(train_loader))
     print("len(val_loader)", len(val_loader))
 
     # create model
@@ -215,7 +213,7 @@ def main(args, device="cpu"):
         # train for one epoch
         loss, train_loss = train(
             args,
-            train_loader0,
+            train_loader,
             model,
             fix_model,
             g_optimizer,
