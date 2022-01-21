@@ -1,13 +1,16 @@
-import os, sys, argparse
+import os, sys
+
 import torch
 import torchvision.transforms as transforms
+
 from misc.dataloader import load_data
 from misc import data_transforms
 
 
 def get_mean_and_std(dataloader):
     channels_sum, channels_squared_sum, num_batches = 0, 0, 0
-    for ([input_left, input_right], max_pix) in dataloader:
+    for idx, ([input_left, input_right], _) in enumerate(dataloader):
+        print(f"Processed batch {idx} of {len(dataloader)}.")
         # Mean over batch, height and width, but not over the channels
         channels_sum += torch.mean(input_left, dim=[0, 2, 3])
         channels_squared_sum += torch.mean(input_left ** 2, dim=[0, 2, 3])
@@ -23,55 +26,40 @@ def get_mean_and_std(dataloader):
     return mean, std
 
 
-def main():
+def main(args, _):
     print(" ".join(sys.argv[:]))
-
-    parser = argparse.ArgumentParser(
-        description="Stereo Mean Std Calculation",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-
-    parser.add_argument(
-        "-dd",
-        "--data_directory",
-        metavar="DIR",
-        default="./data",
-        help="Directory containing the datasets",
-    )
-
-    args = parser.parse_args()
 
     # Set up data augmentations
     input_transform = data_transforms.ApplyToMultiple(
         transforms.Compose(
             [
+                transforms.Resize(
+                    size=(375, 1241), interpolation=transforms.InterpolationMode.LANCZOS
+                ),
                 transforms.ToTensor(),
             ]
         )
     )
 
     # Torch Data Set List
-    input_path = os.path.join(args.data_directory, "ASM_stereo")
-    train_dataset0 = load_data(
-        dataset=args.dataset,
+    input_path = os.path.join(args.data_directory, "KITTI")
+    mean_dataset = load_data(
+        dataset="KITTI",
+        split="eigen_train",
         root=input_path,
         transform=input_transform,
-        max_pix=args.max_disp,
     )
 
-    train_loader0 = torch.utils.data.DataLoader(
-        train_dataset0,
+    mean_loader = torch.utils.data.DataLoader(
+        mean_dataset,
         batch_size=args.batch_size,
-        num_workers=args.workers,
+        num_workers=4,
         pin_memory=False,
-        shuffle=True,
+        shuffle=False,
     )
 
-    print("len(train_dataset0)", len(train_dataset0))
+    print("len(mean_loader): ", len(mean_loader))
 
-    print("mean & std", get_mean_and_std(train_loader0))
+    print("len(mean_dataset): ", len(mean_dataset))
 
-
-if __name__ == "__main__":
-
-    main()
+    print("mean & std: ", get_mean_and_std(mean_loader))

@@ -9,49 +9,85 @@ def specific_argparse():
         description="FAL_net in pytorch",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("-w", "--workers", metavar="Workers", default=4, type=int)
+
     parser.add_argument(
         "-mo",
         "--modus_operandi",
         default="test",
         help="Select the modus operandi.",
-        choices=["test", "predict", "train"],
+        choices=["test", "predict", "train", "mean"],
         required=True,
     )
     args, _ = parser.parse_known_args()
 
-    parser.add_argument(
-        "-gpu",
-        "--gpu_indices",
-        default=[] if args.modus_operandi == "predict" else [0],
-        type=int,
-        nargs="+",
-        help="GPU indices to train on. Trains on CPU if none are supplied.",
-    )
+    if args.modus_operandi in ["test", "predict", "train", "mean"]:
+        parser.add_argument(
+            "-gpu",
+            "--gpu_indices",
+            default=[] if args.modus_operandi in ["predict", "mean"] else [0],
+            type=int,
+            nargs="+",
+            help="GPU indices to train on. Trains on CPU if none are supplied.",
+        )
 
-    parser.add_argument(
-        "-relbase",
-        "--relative_baseline",
-        default=1,
-        help="Relative baseline",
-    )
+        parser.add_argument(
+            "-sp",
+            "--save_path",
+            help="Path that outputs will be saved to",
+            default=None,
+            required=True if args.modus_operandi == "predict" else False,
+        )
 
-    parser.add_argument("-mdisp", "--max_disp", default=300)  # of the training patch W
-    parser.add_argument("-mindisp", "--min_disp", default=2)  # of the training patch W
+    if args.modus_operandi in ["test", "predict", "train"]:
+        parser.add_argument("-w", "--workers", metavar="Workers", default=4, type=int)
 
-    parser.add_argument(
-        "--no_levels",
-        default=49,
-        help="Number of quantization levels in MED",
-    )
+        parser.add_argument(
+            "-relbase",
+            "--relative_baseline",
+            default=1,
+            help="Relative baseline",
+        )
 
-    parser.add_argument(
-        "-sp",
-        "--save_path",
-        help="Path that outputs will be saved to",
-        default=None,
-        required=True if args.modus_operandi == "predict" else False,
-    )
+        parser.add_argument(
+            "-mdisp", "--max_disp", default=300
+        )  # of the training patch W
+        parser.add_argument(
+            "-mindisp", "--min_disp", default=2
+        )  # of the training patch W
+
+        parser.add_argument(
+            "--no_levels",
+            default=49,
+            help="Number of quantization levels in MED",
+        )
+
+    if args.modus_operandi in ["test", "train", "mean"]:
+        parser.add_argument(
+            "-d",
+            "--dataset",
+            metavar="Name of the Dataset to be used.",
+            choices=[
+                "KITTI",
+                "ASM_stereo_small_test",
+                "ASM_stereo_train",
+                "ASM_stereo_test",
+            ],
+            required=True,
+        )
+        args, _ = parser.parse_known_args()
+
+        if args.dataset == "KITTI":
+            script = "mean_k"
+        elif "ASM" in args.dataset:
+            script = "mean_a"
+
+        parser.add_argument(
+            "--data_directory",
+            metavar="DIR",
+            type=str,
+            default="/hdd/asm/datasets/",
+            help="Directory containing the datasets",
+        )
 
     if args.modus_operandi in ["predict", "test"]:
         parser.add_argument("-si", "--save_input", action="store_true", default=False)
@@ -71,25 +107,9 @@ def specific_argparse():
             metavar="N",
             help="print frequency",
         )
-
+    if args.modus_operandi in ["train", "mean"]:
         parser.add_argument(
-            "-d",
-            "--dataset",
-            metavar="Name of the Dataset to be used.",
-            choices=[
-                "KITTI",
-                "ASM_stereo_small_test",
-                "ASM_stereo_train",
-                "ASM_stereo_test",
-            ],
-            required=True,
-        )
-        args, _ = parser.parse_known_args()
-        parser.add_argument(
-            "--data_directory",
-            metavar="DIR",
-            default="/hdd/asm/datasets/",
-            help="Directory containing the datasets",
+            "-b", "--batch_size", metavar="Batch Size", default=1, type=int
         )
 
     if args.modus_operandi == "predict":
@@ -205,10 +225,6 @@ def specific_argparse():
             type=float,
             metavar="Momentum",
             help="Momentum for Optimizer",
-        )
-
-        parser.add_argument(
-            "-b", "--batch_size", metavar="Batch Size", default=1, type=int
         )
 
         parser.add_argument(

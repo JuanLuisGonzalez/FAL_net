@@ -25,5 +25,9 @@ def make_save_path(args, script):
         if args.ms_post_process:
             save_path = save_path + "mspp"
 
-    os.makedirs(save_path, exist_ok=True)
-    return save_path
+    elif args.modus_operandi == "mean":
+        pass
+
+    if save_path:
+        os.makedirs(save_path, exist_ok=True)
+        args.save_path = save_path

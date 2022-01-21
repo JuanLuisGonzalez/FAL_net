@@ -55,7 +55,9 @@ def print_and_save_config(args):
     settings = (
         settings + "############################################################\n"
     )
-    settings = settings + "-------YOUR TRAINING SETTINGS---------\n"
+    settings = (
+        settings + f"-------YOUR {args.modus_operandi.upper()} SETTINGS---------\n"
+    )
     for arg in vars(args):
         settings = settings + "%18s: %s\n" % (str(arg), str(getattr(args, arg)))
     print(settings)

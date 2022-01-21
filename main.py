@@ -17,9 +17,9 @@ def main():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
     if kitti_needed:
-        check_kitti_availability
+        check_kitti_availability(args)
 
-    args.save_path = make_save_path(args, script)
+    make_save_path(args, script)
     print_and_save_config(args)
 
     import torch
@@ -32,6 +32,8 @@ def main():
     from predict.predict import predict
     from train.retrain_stage1_a import main as retrain1a
     from train.train_stage1_a import main as train1a
+    from mean.mean_a import main as mean_a
+    from mean.mean_k import main as mean_k
 
     device = torch.device("cuda" if args.gpu_indices else "cpu")
 
@@ -45,6 +47,8 @@ def main():
             "train1a": train1a,
             "retrain1a": retrain1a,
             "train2k": train2k,
+            "mean_a": mean_a,
+            "mean_k": mean_k,
         }[x]
 
     f(script)(args, device)
