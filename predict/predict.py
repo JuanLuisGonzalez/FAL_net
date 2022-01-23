@@ -8,7 +8,7 @@ import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 import torch.nn.functional as F
-from misc.listdataset_run import ListDataset as RunListDataset
+from misc.listdataset_test import ListDataset as RunListDataset
 import matplotlib.pyplot as plt
 
 from models.FAL_netB import FAL_netB
@@ -19,11 +19,13 @@ from misc.postprocessing import ms_pp
 def predict(args, device="cpu"):
     print("-------Predicting on " + str(device) + "-------")
 
-    input_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1]),
-        ]
+    input_transform = data_transforms.ApplyToMultiple(
+        transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1]),
+            ]
+        )
     )
 
     output_transform = transforms.Compose(
@@ -35,10 +37,11 @@ def predict(args, device="cpu"):
 
     # Torch Data Set List
     predict_dataset = RunListDataset(
-        path_list=[args.input]
+        path_list=[[args.input], []]
         if os.path.isfile(args.input)
         else [
-            os.path.join(args.input, x) for x in sorted(next(os.walk(args.input))[2])
+            [[os.path.join(args.input, x)], []]
+            for x in sorted(next(os.walk(args.input))[2])
         ],
         transform=input_transform,
     )
@@ -83,7 +86,7 @@ def predict(args, device="cpu"):
     right_shift = args.max_disp * args.relative_baseline
 
     with torch.no_grad():
-        for i, input in enumerate(val_loader):
+        for i, ([input], _, _) in enumerate(val_loader):
             input_left = input.to(device)
             B, C, H, W = input_left.shape
 
@@ -94,7 +97,7 @@ def predict(args, device="cpu"):
             flip_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=False)
             flip_grid[:, :, :, 0] = -flip_grid[:, :, :, 0]
 
-            # Convert min and max disp to bx1x1 tensors
+            # Convert min and max disp to bx1x1 where b=1 tensors
             max_disp = (
                 torch.Tensor([right_shift])
                 .unsqueeze(1)

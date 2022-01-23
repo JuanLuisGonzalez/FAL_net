@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from misc.dataloader import load_data
 
 from models.FAL_netB import FAL_netB
-from misc import utils
+from misc import utils, data_transforms
 from misc.postprocessing import ms_pp
 from testing.test_k_eigen_classic_utils import main as eval_kitti
 
@@ -19,14 +19,22 @@ from testing.test_k_eigen_classic_utils import main as eval_kitti
 def main(args, device="cpu"):
     print("-------Predicting on " + str(device) + "-------")
 
-    input_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1]),
-            transforms.Resize(
-                size=(256, 512), interpolation=transforms.InterpolationMode.NEAREST
-            ),
-        ]
+    input_transform = data_transforms.ApplyToMultiple(
+        transforms.Compose(
+            [
+                # transforms.Resize(
+                #     size=(256, 512), interpolation=transforms.InterpolationMode.BILINEAR
+                # ),
+                transforms.ToTensor(),
+                # transforms.Normalize(
+                #     mean=[0.3606, 0.3789, 0.3652], std=[0.3123, 0.3173, 0.3216]
+                # ),
+                transforms.Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1]),
+                transforms.Resize(
+                    size=(256, 512), interpolation=transforms.InterpolationMode.NEAREST
+                ),
+            ]
+        )
     )
 
     input_path = os.path.join(args.data_directory, args.dataset)
@@ -70,7 +78,7 @@ def main(args, device="cpu"):
     disparities = np.zeros((697, 256, 512), dtype=np.float32)
 
     with torch.no_grad():
-        for i, input in enumerate(test_loader):
+        for i, ([input], _, _) in enumerate(test_loader):
             input_left = input.to(device)
             B, C, H, W = input_left.shape
 
@@ -81,7 +89,7 @@ def main(args, device="cpu"):
             flip_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=False)
             flip_grid[:, :, :, 0] = -flip_grid[:, :, :, 0]
 
-            # Convert min and max disp to bx1x1 tensors
+            # Convert min and max disp to bx1x1 where b=1 tensors
             max_disp = (
                 torch.Tensor([right_shift])
                 .unsqueeze(1)

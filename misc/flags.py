@@ -24,7 +24,8 @@ def specific_argparse():
         parser.add_argument(
             "-gpu",
             "--gpu_indices",
-            default=[] if args.modus_operandi in ["predict", "mean"] else [0],
+            # default=[] if args.modus_operandi in ["predict", "mean"] else [0],
+            default=[],
             type=int,
             nargs="+",
             help="GPU indices to train on. Trains on CPU if none are supplied.",
@@ -97,6 +98,7 @@ def specific_argparse():
             default=True,
             help="Post-processing with multi-scale input",
         )
+        parser.add_argument("--model", help="Model", required=True)
 
     if args.modus_operandi in ["test", "train"]:
         parser.add_argument(
@@ -273,6 +275,7 @@ def specific_argparse():
                 "--fix_model",
                 dest="fix_model",
                 default="KITTI_stage1/08-20-13_25/FAL_netB,e50es,b1,lr0.0001/checkpoint.pth.tar",
+                required=True,
             )
         if args.dataset == "KITTI":
             kitti_needed = True
@@ -319,15 +322,6 @@ def specific_argparse():
                 script = "retrain1a"
             else:
                 script = "train1a"
-
-    try:
-        stage = args.stage
-    except:
-        stage = None
-    if args.modus_operandi in ["predict", "test"] or (
-        args.modus_operandi == "train" and stage == 2
-    ):
-        parser.add_argument("--model", help="Model", default="FAL_netB", required=True)
 
     args = parser.parse_args()
     return args, kitti_needed, script

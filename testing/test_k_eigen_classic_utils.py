@@ -30,23 +30,21 @@ def read_file_data(files, data_root):
     cams = []
     num_probs = 0
     for filename in files:
-        splits = filename.split()
-        date = filename.split("/")[0]
-        im_id = splits[1]
-        data_path = splits[0].split("/")[1]
+        date = filename[:10]
+        im_id = filename[-14:-4]
+        data_path = filename.split("/")[0]
 
-        im = data_path + f"/image_02/data/{im_id}.png"
         vel = f"{data_path}/velodyne_points/data/{im_id}.bin"
 
-        if os.path.isfile(os.path.join(data_root, im)):
+        if os.path.isfile(os.path.join(data_root, filename)):
             gt_files.append(os.path.join(data_root, vel))
             gt_calib.append(os.path.join(data_root, date))
-            im_sizes.append(cv2.imread(os.path.join(data_root, im)).shape[:2])
-            im_files.append(os.path.join(data_root, im))
+            im_sizes.append(cv2.imread(os.path.join(data_root, filename)).shape[:2])
+            im_files.append(os.path.join(data_root, filename))
             cams.append(2)
         else:
             num_probs += 1
-            print("{} missing".format(os.path.join(data_root, im)))
+            print("{} missing".format(os.path.join(data_root, filename)))
     print(num_probs, "files missing")
 
     return gt_files, gt_calib, im_sizes, im_files, cams

@@ -29,26 +29,24 @@ def main(args, device="cpu"):
         )
 
     # Set up data augmentations
-    co_transform = data_transforms.Compose(
-        [
-            data_transforms.RandomResizeCrop(
-                (args.crop_height, args.crop_width), down=0.75, up=1.5
-            ),
-            data_transforms.RandomHorizontalFlip(),
-            data_transforms.RandomGamma(min=0.8, max=1.2),
-            data_transforms.RandomBrightness(min=0.5, max=2.0),
-            data_transforms.RandomCBrightness(min=0.8, max=1.2),
-        ]
-    )
-
-    input_transform = transforms.Compose(
-        [
-            data_transforms.ArrayToTensor(),
-            transforms.Normalize(
-                mean=[0, 0, 0], std=[255, 255, 255]
-            ),  # (input - mean) / std
-            transforms.Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1]),
-        ]
+    transform = data_transforms.ApplyToMultiple(
+        transforms.Compose(
+            [
+                transforms.RandomResizedCrop(
+                    size=(args.crop_height, args.crop_width),
+                    scale=(0.10, 1.0),
+                    ratio=(1, 1),
+                ),
+                transforms.ColorJitter(
+                    brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2
+                ),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.3606, 0.3789, 0.3652], std=[0.3123, 0.3173, 0.3216]
+                ),  # (input - mean) / std
+            ]
+        ),
+        RandomHorizontalFlipChance=0.5,
     )
 
     # Torch Data Set List
@@ -56,9 +54,7 @@ def main(args, device="cpu"):
     train_dataset0, val_dataset0 = load_data(
         dataset=args.dataset,
         root=input_path,
-        transform=input_transform,
-        co_transform=co_transform,
-        max_pix=args.max_disp,
+        transform=transform,
         create_val=0.1,
     )
     print("len(train_dataset0)", len(train_dataset0))
@@ -168,7 +164,13 @@ def train(args, train_loader, model, g_optimizer, epoch, device, vgg_loss, scale
         # Read training data
         left_view = input_data0[0][0].to(device)
         right_view = input_data0[0][1].to(device)
-        max_disp = input_data0[1].unsqueeze(1).unsqueeze(1).type(left_view.type())
+        max_disp = (
+            torch.Tensor([args.max_disp * args.relative_baseline])
+            .repeat(args.batch_size)
+            .unsqueeze(1)
+            .unsqueeze(1)
+            .type(left_view.type())
+        )
         _, _, _, W = left_view.shape
 
         # measure data loading time

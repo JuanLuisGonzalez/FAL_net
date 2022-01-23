@@ -21,87 +21,41 @@ import os
 import os.path
 from imageio import imread
 import numpy as np
-import scipy.io as sio
 from PIL import Image
-
-LR_DATASETS = ["Kitti_eigen_test_improved"]
-
-
-def img_loader(path_img):
-    img = imread(path_img)
-    return img
+import torch
 
 
 def kittidisp_loader(path_img):
     disp = imread(path_img) / 256
-    return disp[:, :, np.newaxis]
-
-
-def kittidepth_loader(path_depth):
-    depth = np.load(path_depth)
-    return depth[:, :, np.newaxis]
+    disp = disp[np.newaxis, :, :]
+    disp = torch.from_numpy(disp).float()
+    return disp
 
 
 class ListDataset(data.Dataset):
     def __init__(
         self,
-        path_list,
-        disp=False,
-        of=False,
-        data_name="Kitti2015",
-        transform=None,
-        target_transform=None,
-        co_transform=None,
+        data_list,
+        transform=lambda x: x,
     ):
-        self.path_list = path_list
+        self.data_list = data_list
         self.transform = transform
-        self.target_transform = target_transform
-        self.co_transform = co_transform
-        self.disp = disp
-        self.of = of
-        self.data_name = data_name
-
-        if data_name == "Kitti2015" or data_name == "Kitti_eigen_test_improved":
-            self.input_loader = img_loader
-            if self.disp:
-                self.target_loader = kittidisp_loader
-        elif data_name == "Kitti_eigen_test_original":
-            self.input_loader = img_loader
-            if self.disp:
-                self.target_loader = kittidepth_loader
+        self.is_image_list = isinstance(data_list[0][0], Image.Image)
 
     def __len__(self):
-        return len(self.path_list)
+        return len(self.data_list)
 
     def __getitem__(self, index):
-        inputs, targets = self.path_list[index]
-
-        if self.data_name in LR_DATASETS:
-            if self.disp:
-                targets = [
-                    self.target_loader(targets[0]),
-                    self.target_loader(targets[1]),
-                ]
+        if self.is_image_list:
+            inputs = self.data_list[index]
+            file_name = str(index).zfill(10)
+            targets = []
         else:
-            if self.disp:
-                targets = [self.target_loader(targets[0])]
+            inputs, targets = self.data_list[index]
+            file_name = os.path.basename(inputs[0])[:-4]
+            inputs = [Image.open(path_img) for path_img in inputs]
+            targets = [kittidisp_loader(target) for target in targets]
 
-        file_name = os.path.basename(inputs[0])[:-4]
-        inputs = [
-            self.input_loader(inputs[0]),
-            self.input_loader(inputs[1]),
-        ]
-
-        if self.co_transform is not None:
-            inputs, targets = self.co_transform(inputs, targets)
-        if self.transform is not None:
-            for i in range(len(inputs)):
-                inputs[i] = self.transform(inputs[i])
-        if targets is None:
-            return inputs, 0, file_name
-
-        if self.target_transform is not None:
-            for i in range(len(targets)):
-                targets[i] = self.target_transform(targets[i])
+        inputs = self.transform(inputs)
 
         return inputs, targets, file_name

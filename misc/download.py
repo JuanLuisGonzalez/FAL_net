@@ -292,21 +292,24 @@ def check_kitti_availability(args):
         ):
             download_KITTI()
 
-    validation_dataset_path = os.path.join(args.data_directory, args.validation_dataset)
-    if (
-        not os.path.exists(validation_dataset_path)
-        and args.validation_dataset == "KITTI2015"
-    ):
-        print(f"No data found at {validation_dataset_path}.")
+    if args.modus_operandi == "train":
+        validation_dataset_path = os.path.join(
+            args.data_directory, args.validation_dataset
+        )
         if (
-            input(
-                f"Would you like to download {args.validation_dataset} dataset? (y/n): "
-            )
-            .lower()
-            .strip()[:1]
-            == "y"
+            not os.path.exists(validation_dataset_path)
+            and args.validation_dataset == "KITTI2015"
         ):
-            download_KITTI2015()
+            print(f"No data found at {validation_dataset_path}.")
+            if (
+                input(
+                    f"Would you like to download {args.validation_dataset} dataset? (y/n): "
+                )
+                .lower()
+                .strip()[:1]
+                == "y"
+            ):
+                download_KITTI2015()
 
     if not os.path.exists(dataset_path):
         print(f"Program aborts, as no data could be found at {dataset_path}.")

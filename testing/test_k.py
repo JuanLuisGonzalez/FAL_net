@@ -42,21 +42,14 @@ from misc.postprocessing import ms_pp, local_normalization
 def main(args, device="cpu"):
     print("-------Testing on " + str(device) + "-------")
 
-    input_transform = transforms.Compose(
-        [
-            data_transforms.ArrayToTensor(),
-            transforms.Normalize(
-                mean=[0, 0, 0], std=[255, 255, 255]
-            ),  # (input - mean) / std
-            transforms.Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1]),
-        ]
-    )
-
-    target_transform = transforms.Compose(
-        [
-            data_transforms.ArrayToTensor(),
-            transforms.Normalize(mean=[0], std=[1]),
-        ]
+    # Set up data augmentations
+    input_transform = data_transforms.ApplyToMultiple(
+        transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.411, 0.432, 0.45], std=[1, 1, 1]),
+            ]
+        )
     )
 
     # Torch Data Set List
@@ -65,18 +58,14 @@ def main(args, device="cpu"):
         split=args.test_split,
         dataset=args.dataset,
         root=input_path,
-        disp=True,
-        shuffle_test=False,
         transform=input_transform,
-        target_transform=target_transform,
     )
 
     print("len(test_dataset)", len(test_dataset))
     # Torch Data Loader
-    args.batch_size = 1  # kitty mixes image sizes!
     val_loader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=args.batch_size,
+        batch_size=1,
         num_workers=args.workers,
         pin_memory=False,
         shuffle=False,
@@ -304,7 +293,7 @@ def validate(args, val_loader, pan_model, save_path, model_param, device):
                 )
 
     # Save erros and number of parameters in txt file
-    with open(os.path.join(save_path, "errors.txt"), "w+") as f:
+    with open(os.path.join(save_path, "results.txt"), "w+") as f:
         f.write("\nNumber of parameters {}\n".format(model_param))
         f.write("\nEPE {}\n".format(EPEs.avg))
         f.write("\nKitti metrics: \n{}\n".format(kitti_erros))

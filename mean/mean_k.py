@@ -9,13 +9,13 @@ from misc import data_transforms
 
 def get_mean_and_std(dataloader):
     channels_sum, channels_squared_sum, num_batches = 0, 0, 0
-    for idx, ([input_left, input_right], _) in enumerate(dataloader):
+    for idx, (inputs, _, _) in enumerate(dataloader):
         print(f"Processed batch {idx} of {len(dataloader)}.")
-        # Mean over batch, height and width, but not over the channels
-        channels_sum += torch.mean(input_left, dim=[0, 2, 3])
-        channels_squared_sum += torch.mean(input_left ** 2, dim=[0, 2, 3])
-        channels_sum += torch.mean(input_right, dim=[0, 2, 3])
-        channels_squared_sum += torch.mean(input_right ** 2, dim=[0, 2, 3])
+        for inp in inputs:
+            # Mean over batch, height and width, but not over the channels
+            channels_sum += torch.mean(inp, dim=[0, 2, 3])
+            channels_squared_sum += torch.mean(inp ** 2, dim=[0, 2, 3])
+
         num_batches += 2
 
     mean = channels_sum / num_batches

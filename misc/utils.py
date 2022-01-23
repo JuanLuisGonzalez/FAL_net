@@ -29,18 +29,6 @@ def eta_calculator(batch_time_average, epoch_size, remaining_epochs, current_bat
     return datetime.timedelta(seconds=round(eta_seconds))
 
 
-def flatten(the_lists):
-    result = []
-    for item in the_lists:
-        if isinstance(item, list):
-            result += item
-        else:
-            result.append(item)
-    if any(isinstance(item, list) for item in result):
-        result = flatten(result)
-    return result
-
-
 def print_and_save_config(args):
     settings = ""
     settings = (

@@ -63,7 +63,6 @@ def main(args, device="cpu"):
     test_dataset = load_data(
         dataset=args.dataset,
         root=args.data_directory,
-        shuffle_test=False,
         transform=input_transform,
     )
 
@@ -140,7 +139,7 @@ def validate(
             flip_grid = F.affine_grid(i_tetha, [B, C, H, W], align_corners=False)
             flip_grid[:, :, :, 0] = -flip_grid[:, :, :, 0]
 
-            # Convert min and max disp to bx1x1 tensors
+            # Convert min and max disp to bx1x1 where b=1 tensors
             max_disp = (
                 torch.Tensor([right_shift])
                 .unsqueeze(1)
@@ -216,7 +215,7 @@ def validate(
                 )
 
     # Save erros and number of parameters in txt file
-    with open(os.path.join(save_path, "errors.txt"), "w+") as f:
+    with open(os.path.join(save_path, "results.txt"), "w+") as f:
         f.write("\nNumber of parameters {}\n".format(model_param))
         f.write("\nEPE {}\n".format(EPEs.avg))
         f.write("\nKitti metrics: \n{}\n".format(asm_erros))
