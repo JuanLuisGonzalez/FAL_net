@@ -16,8 +16,6 @@ from skimage.metrics import (
     variation_of_information,
 )
 
-a = datetime.timedelta(seconds=24)
-
 
 def eta_calculator(batch_time_average, epoch_size, remaining_epochs, current_batch):
     eta_seconds = (

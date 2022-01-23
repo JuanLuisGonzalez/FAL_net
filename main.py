@@ -27,8 +27,7 @@ def main():
     from testing.test_k import main as testk
     from testing.test_k_eigen_classic import main as testk_eigenclassic
     from testing.test_a import main as testa
-    from train.train_stage1_k import main as train1k
-    from train.train_stage2_k import main as train2k
+    from train.train_k import main as traink
     from predict.predict import predict
     from train.retrain_stage1_a import main as retrain1a
     from train.train_stage1_a import main as train1a
@@ -43,10 +42,9 @@ def main():
             "testk_eigenclassic": testk_eigenclassic,
             "testk": testk,
             "testa": testa,
-            "train1k": train1k,
+            "traink": traink,
             "train1a": train1a,
             "retrain1a": retrain1a,
-            "train2k": train2k,
             "mean_a": mean_a,
             "mean_k": mean_k,
         }[x]

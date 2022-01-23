@@ -6,6 +6,8 @@ ASM_stereo_train_retrain1/
 KITTI_stage2/
 KITTI_train1k
 KITTI_train2k
+KITTI_traink
+
 data/*
 temp/
 eigen/

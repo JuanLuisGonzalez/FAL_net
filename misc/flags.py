@@ -242,6 +242,12 @@ def specific_argparse():
         )
         args, _ = parser.parse_known_args()
         parser.add_argument(
+            "-mirror_loss",
+            "--a_mr",
+            default=1 if args.stage == 2 else 0,
+            help="Mirror loss weight",
+        )
+        parser.add_argument(
             "--epochs",
             default=50 if args.stage == 1 else 20,
             type=int,
@@ -269,15 +275,13 @@ def specific_argparse():
         )
         if args.stage == 2:
             parser.add_argument(
-                "-mirror_loss", "--a_mr", default=1, help="Mirror loss weight"
-            )
-            parser.add_argument(
                 "--fix_model",
                 dest="fix_model",
                 default="KITTI_stage1/08-20-13_25/FAL_netB,e50es,b1,lr0.0001/checkpoint.pth.tar",
                 required=True,
             )
         if args.dataset == "KITTI":
+            script = "traink"
             kitti_needed = True
             parser.add_argument(
                 "-trsp",
@@ -298,10 +302,6 @@ def specific_argparse():
                 metavar="Name of the validation split of the data to be loaded from the dataset.",
                 default="bello_val",
             )
-            if args.stage == 1:
-                script = "train1k"
-            if args.stage == 2:
-                script = "train2k"
         elif "ASM" in args.dataset:
             parser.add_argument(
                 "--val_freq",

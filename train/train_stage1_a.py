@@ -19,7 +19,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 import os
 import time
-import numpy as np
 
 from misc.dataloader import load_data
 from models.FAL_netB import FAL_netB
